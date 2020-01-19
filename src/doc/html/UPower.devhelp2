@@ -138,6 +138,9 @@
     <keyword type="constant" name="UP_DEVICE_LEVEL_LOW" link="UPower-up-types.html#UP-DEVICE-LEVEL-LOW:CAPS"/>
     <keyword type="constant" name="UP_DEVICE_LEVEL_CRITICAL" link="UPower-up-types.html#UP-DEVICE-LEVEL-CRITICAL:CAPS"/>
     <keyword type="constant" name="UP_DEVICE_LEVEL_ACTION" link="UPower-up-types.html#UP-DEVICE-LEVEL-ACTION:CAPS"/>
+    <keyword type="constant" name="UP_DEVICE_LEVEL_NORMAL" link="UPower-up-types.html#UP-DEVICE-LEVEL-NORMAL:CAPS"/>
+    <keyword type="constant" name="UP_DEVICE_LEVEL_HIGH" link="UPower-up-types.html#UP-DEVICE-LEVEL-HIGH:CAPS"/>
+    <keyword type="constant" name="UP_DEVICE_LEVEL_FULL" link="UPower-up-types.html#UP-DEVICE-LEVEL-FULL:CAPS"/>
     <keyword type="constant" name="UP_DEVICE_LEVEL_LAST" link="UPower-up-types.html#UP-DEVICE-LEVEL-LAST:CAPS"/>
   </functions>
 </book>

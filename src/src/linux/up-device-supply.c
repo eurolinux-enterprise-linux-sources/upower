@@ -36,11 +36,9 @@
 #include "sysfs-utils.h"
 #include "up-config.h"
 #include "up-types.h"
+#include "up-constants.h"
 #include "up-device-supply.h"
 
-#define UP_DEVICE_SUPPLY_REFRESH_TIMEOUT	30	/* seconds */
-#define UP_DEVICE_SUPPLY_UNKNOWN_TIMEOUT	1	/* seconds */
-#define UP_DEVICE_SUPPLY_UNKNOWN_RETRIES	5
 #define UP_DEVICE_SUPPLY_CHARGED_THRESHOLD	90.0f	/* % */
 
 #define UP_DEVICE_SUPPLY_COLDPLUG_UNITS_CHARGE		TRUE
@@ -48,6 +46,12 @@
 
 /* number of old energy values to keep cached */
 #define UP_DEVICE_SUPPLY_ENERGY_OLD_LENGTH		4
+
+typedef enum {
+	REFRESH_RESULT_FAILURE = 0,
+	REFRESH_RESULT_SUCCESS = 1,
+	REFRESH_RESULT_NO_DATA
+} RefreshResult;
 
 struct UpDeviceSupplyPrivate
 {
@@ -69,12 +73,7 @@ G_DEFINE_TYPE (UpDeviceSupply, up_device_supply, UP_TYPE_DEVICE)
 
 static gboolean		 up_device_supply_refresh	 	(UpDevice *device);
 
-/**
- * up_device_supply_refresh_line_power:
- *
- * Return %TRUE on success, %FALSE if we failed to refresh or no data
- **/
-static gboolean
+static RefreshResult
 up_device_supply_refresh_line_power (UpDeviceSupply *supply)
 {
 	UpDevice *device = UP_DEVICE (supply);
@@ -91,7 +90,7 @@ up_device_supply_refresh_line_power (UpDeviceSupply *supply)
 	native_path = g_udev_device_get_sysfs_path (native);
 	g_object_set (device, "online", sysfs_get_int (native_path, "online"), NULL);
 
-	return TRUE;
+	return REFRESH_RESULT_SUCCESS;
 }
 
 /**
@@ -278,7 +277,7 @@ up_device_supply_calculate_rate (UpDeviceSupply *supply, gdouble energy)
 		return supply->priv->rate_old;
 
 	/* Compute the discharge per hour, and not per second */
-	rate /= sum_x / 3600.0f;
+	rate /= sum_x / SECONDS_PER_HOUR_F;
 
 	/* if the rate is zero, use the old rate. It will usually happens if no
 	 * data is in the buffer yet. If the rate is too high, i.e. more than,
@@ -476,17 +475,65 @@ up_device_supply_get_state (const gchar *native_path)
 	return state;
 }
 
-/**
- * up_device_supply_refresh_battery:
- *
- * Return %TRUE on success, %FALSE if we failed to refresh or no data
- **/
-static gboolean
+static gdouble
+sysfs_get_capacity_level (const char    *native_path,
+			  UpDeviceLevel *level)
+{
+	char *str;
+	gdouble ret = -1.0;
+	guint i;
+	struct {
+		const char *str;
+		gdouble percentage;
+		UpDeviceLevel level;
+	} levels[] = {
+		/* In order of most likely to least likely,
+		 * Keep in sync with up_daemon_compute_warning_level() */
+		{ "Normal",    55.0, UP_DEVICE_LEVEL_NORMAL },
+		{ "High",      70.0, UP_DEVICE_LEVEL_HIGH },
+		{ "Low",       10.0, UP_DEVICE_LEVEL_LOW },
+		{ "Critical",   5.0, UP_DEVICE_LEVEL_CRITICAL },
+		{ "Full",     100.0, UP_DEVICE_LEVEL_FULL }
+	};
+	guint len;
+
+	g_return_val_if_fail (level != NULL, -1.0);
+
+	if (!sysfs_file_exists (native_path, "capacity_level")) {
+		g_debug ("capacity_level doesn't exist, skipping");
+		*level = UP_DEVICE_LEVEL_NONE;
+		return -1.0;
+	}
+
+	*level = UP_DEVICE_LEVEL_UNKNOWN;
+	str = sysfs_get_string (native_path, "capacity_level");
+	if (!str) {
+		g_debug ("Failed to read capacity_level!");
+		return ret;
+	}
+
+	len = strlen(str);
+	str[len -1] = '\0';
+	for (i = 0; i < G_N_ELEMENTS(levels); i++) {
+		if (strcmp (levels[i].str, str) == 0) {
+			ret = levels[i].percentage;
+			*level = levels[i].level;
+			break;
+		}
+	}
+
+	if (ret < 0.0)
+		g_debug ("Could not find a percentage for capacity level '%s'", str);
+
+	g_free (str);
+	return ret;
+}
+
+static RefreshResult
 up_device_supply_refresh_battery (UpDeviceSupply *supply,
 				  UpDeviceState  *out_state)
 {
 	gchar *technology_native = NULL;
-	gboolean ret = TRUE;
 	gdouble voltage_design;
 	UpDeviceState old_state;
 	UpDeviceState state;
@@ -805,24 +852,64 @@ out:
 	g_free (manufacturer);
 	g_free (model_name);
 	g_free (serial_number);
-	return ret;
+	return REFRESH_RESULT_SUCCESS;
 }
 
-/**
- * up_device_supply_refresh_device:
- *
- * Return %TRUE on success, %FALSE if we failed to refresh or no data
- **/
-static gboolean
+static GUdevDevice *
+up_device_supply_get_sibling_with_subsystem (GUdevDevice *device,
+					     const char *subsystem)
+{
+	GUdevDevice *parent;
+	GUdevClient *client;
+	GUdevDevice *sibling;
+	const char * class[] = { NULL, NULL };
+	const char *parent_path;
+	GList *devices, *l;
+
+	g_return_val_if_fail (device != NULL, NULL);
+	g_return_val_if_fail (subsystem != NULL, NULL);
+
+	parent = g_udev_device_get_parent (device);
+	if (!parent)
+		return NULL;
+	parent_path = g_udev_device_get_sysfs_path (parent);
+
+	sibling = NULL;
+	class[0] = subsystem;
+	client = g_udev_client_new (class);
+	devices = g_udev_client_query_by_subsystem (client, subsystem);
+	for (l = devices; l != NULL && sibling == NULL; l = l->next) {
+		GUdevDevice *d = l->data;
+		GUdevDevice *p;
+		const char *p_path;
+
+		p = g_udev_device_get_parent (d);
+		if (!p)
+			continue;
+		p_path = g_udev_device_get_sysfs_path (p);
+		if (g_strcmp0 (p_path, parent_path) == 0)
+			sibling = g_object_ref (d);
+
+		g_object_unref (p);
+	}
+
+	g_list_free_full (devices, (GDestroyNotify) g_object_unref);
+	g_object_unref (client);
+	g_object_unref (parent);
+
+	return sibling;
+}
+
+static RefreshResult
 up_device_supply_refresh_device (UpDeviceSupply *supply,
 				 UpDeviceState  *out_state)
 {
-	gboolean ret = TRUE;
 	UpDeviceState state;
 	UpDevice *device = UP_DEVICE (supply);
 	const gchar *native_path;
 	GUdevDevice *native;
 	gdouble percentage = 0.0f;
+	UpDeviceLevel level = UP_DEVICE_LEVEL_NONE;
 
 	native = G_UDEV_DEVICE (up_device_get_native (device));
 	native_path = g_udev_device_get_sysfs_path (native);
@@ -830,16 +917,34 @@ up_device_supply_refresh_device (UpDeviceSupply *supply,
 	/* initial values */
 	if (!supply->priv->has_coldplug_values) {
 		gchar *model_name;
+		gchar *serial_number;
 
 		/* get values which may be blank */
 		model_name = up_device_supply_get_string (native_path, "model_name");
+		serial_number = up_device_supply_get_string (native_path, "serial_number");
+		if (model_name == NULL && serial_number == NULL) {
+			GUdevDevice *sibling;
+
+			sibling = up_device_supply_get_sibling_with_subsystem (native, "input");
+			if (sibling != NULL) {
+				const char *path;
+				path = g_udev_device_get_sysfs_path (sibling);
+
+				model_name = up_device_supply_get_string (path, "name");
+				serial_number = up_device_supply_get_string (path, "uniq");
+
+				g_object_unref (sibling);
+			}
+		}
 
 		/* some vendors fill this with binary garbage */
 		up_device_supply_make_safe_string (model_name);
+		up_device_supply_make_safe_string (serial_number);
 
 		g_object_set (device,
 			      "is-present", TRUE,
 			      "model", model_name,
+			      "serial", serial_number,
 			      "is-rechargeable", TRUE,
 			      "has-history", TRUE,
 			      "has-statistics", TRUE,
@@ -854,12 +959,15 @@ up_device_supply_refresh_device (UpDeviceSupply *supply,
 
 	/* get a precise percentage */
 	percentage = sysfs_get_double_with_error (native_path, "capacity");
+	if (percentage < 0.0)
+		percentage = sysfs_get_capacity_level (native_path, &level);
+
 	if (percentage < 0.0) {
 		/* Probably talking to the device over Bluetooth */
 		state = UP_DEVICE_STATE_UNKNOWN;
 		g_object_set (device, "state", state, NULL);
 		*out_state = state;
-		return FALSE;
+		return REFRESH_RESULT_NO_DATA;
 	}
 
 	state = up_device_supply_get_state (native_path);
@@ -877,12 +985,13 @@ up_device_supply_refresh_device (UpDeviceSupply *supply,
 
 	g_object_set (device,
 		      "percentage", percentage,
+		      "battery-level", level,
 		      "state", state,
 		      NULL);
 
 	*out_state = state;
 
-	return ret;
+	return REFRESH_RESULT_SUCCESS;
 }
 
 static gboolean
@@ -891,12 +1000,65 @@ up_device_supply_poll_unknown_battery (UpDevice *device)
 	UpDeviceSupply *supply = UP_DEVICE_SUPPLY (device);
 
 	g_debug ("Unknown state on supply %s; forcing update after %i seconds",
-		 up_device_get_object_path (device), UP_DEVICE_SUPPLY_UNKNOWN_TIMEOUT);
+		 up_device_get_object_path (device), UP_DAEMON_UNKNOWN_TIMEOUT);
 
 	supply->priv->poll_timer_id = 0;
 	up_device_supply_refresh (device);
 
 	return FALSE;
+}
+
+static UpDeviceKind
+up_device_supply_guess_type (GUdevDevice *native,
+			     const char *native_path)
+{
+	gchar *device_type;
+	UpDeviceKind type = UP_DEVICE_KIND_UNKNOWN;
+
+	device_type = up_device_supply_get_string (native_path, "type");
+	if (device_type == NULL)
+		return type;
+
+	if (g_ascii_strcasecmp (device_type, "mains") == 0) {
+		type = UP_DEVICE_KIND_LINE_POWER;
+		goto out;
+	}
+
+	if (g_ascii_strcasecmp (device_type, "battery") == 0) {
+		GUdevDevice *sibling;
+
+		sibling = up_device_supply_get_sibling_with_subsystem (native, "input");
+		if (sibling) {
+			if (g_udev_device_get_property_as_boolean (sibling, "ID_INPUT_MOUSE") ||
+			    g_udev_device_get_property_as_boolean (sibling, "ID_INPUT_TOUCHPAD")) {
+				type = UP_DEVICE_KIND_MOUSE;
+			} else if (g_udev_device_get_property_as_boolean (sibling, "ID_INPUT_JOYSTICK")) {
+				type = UP_DEVICE_KIND_GAMING_INPUT;
+			} else {
+				type = UP_DEVICE_KIND_KEYBOARD;
+			}
+
+			g_object_unref (sibling);
+		}
+
+		if (type == UP_DEVICE_KIND_UNKNOWN)
+			type = UP_DEVICE_KIND_BATTERY;
+	} else if (g_ascii_strcasecmp (device_type, "USB") == 0) {
+
+		/* use a heuristic to find the device type */
+		if (g_strstr_len (native_path, -1, "wacom_") != NULL) {
+			type = UP_DEVICE_KIND_TABLET;
+		} else {
+			g_warning ("did not recognise USB path %s, please report",
+				   native_path);
+		}
+	} else {
+		g_warning ("did not recognise type %s, please report", device_type);
+	}
+
+out:
+	g_free (device_type);
+	return type;
 }
 
 /**
@@ -908,21 +1070,11 @@ static gboolean
 up_device_supply_coldplug (UpDevice *device)
 {
 	UpDeviceSupply *supply = UP_DEVICE_SUPPLY (device);
-	gboolean ret = FALSE;
-	GUdevDevice *bluetooth;
 	GUdevDevice *native;
-	const gchar *file;
-	const gchar *device_path = NULL;
 	const gchar *native_path;
 	const gchar *scope;
-	gchar *device_type = NULL;
-	gchar *input_path = NULL;
-	gchar *subdir = NULL;
-	GDir *dir = NULL;
-	GError *error = NULL;
-	UpDeviceKind type = UP_DEVICE_KIND_UNKNOWN;
-	guint i;
-	const char *class[] = { "hid", "bluetooth" };
+	UpDeviceKind type;
+	RefreshResult ret;
 
 	up_device_supply_reset_values (supply);
 
@@ -931,7 +1083,7 @@ up_device_supply_coldplug (UpDevice *device)
 	native_path = g_udev_device_get_sysfs_path (native);
 	if (native_path == NULL) {
 		g_warning ("could not get native path for %p", device);
-		goto out;
+		return FALSE;
 	}
 
 	/* try to work out if the device is powering the system */
@@ -947,85 +1099,14 @@ up_device_supply_coldplug (UpDevice *device)
 
 	/* we don't use separate ACs for devices */
 	if (supply->priv->is_power_supply == FALSE &&
-	    !sysfs_file_exists (native_path, "capacity")) {
+	    !sysfs_file_exists (native_path, "capacity") &&
+	    !sysfs_file_exists (native_path, "capacity_level")) {
 		g_debug ("Ignoring device AC, we'll monitor the device battery");
-		goto out;
+		return FALSE;
 	}
 
 	/* try to detect using the device type */
-	device_type = up_device_supply_get_string (native_path, "type");
-	if (device_type != NULL) {
-		if (g_ascii_strcasecmp (device_type, "mains") == 0) {
-			type = UP_DEVICE_KIND_LINE_POWER;
-		} else if (g_ascii_strcasecmp (device_type, "battery") == 0) {
-			for (i = 0; i < G_N_ELEMENTS(class) && type == UP_DEVICE_KIND_UNKNOWN; i++) {
-				/* Detect if the battery comes from bluetooth keyboard or mouse. */
-				bluetooth = g_udev_device_get_parent_with_subsystem (native, class[i], NULL);
-				if (bluetooth != NULL) {
-					device_path = g_udev_device_get_sysfs_path (bluetooth);
-
-					/* There may be an extra subdirectory here */
-					subdir = g_build_filename (device_path, "input", NULL);
-					if (!g_file_test (subdir, G_FILE_TEST_IS_DIR)) {
-						g_free(subdir);
-						subdir = g_strdup (device_path);
-					}
-
-					if ((dir = g_dir_open (subdir, 0, &error))) {
-						while ((file = g_dir_read_name (dir))) {
-							/* Check if it is an input device. */
-							if (g_str_has_prefix (file, "input")) {
-								input_path = g_build_filename (subdir, file, NULL);
-								break;
-							}
-						}
-						g_dir_close (dir);
-					} else {
-						g_warning ("Can not open folder %s: %s", device_path, error->message);
-						g_error_free (error);
-					}
-					g_free (subdir);
-					g_object_unref (bluetooth);
-				}
-
-				if (input_path == NULL)
-					continue;
-
-				if ((dir = g_dir_open (input_path, 0, &error))) {
-					while ((file = g_dir_read_name (dir))) {
-						/* Check if it is a mouse device. */
-						if (g_str_has_prefix (file, "mouse")) {
-							type = UP_DEVICE_KIND_MOUSE;
-							break;
-						}
-					}
-					g_dir_close (dir);
-				} else {
-					g_warning ("Can not open folder %s: %s", input_path, error->message);
-					g_error_free (error);
-				}
-				g_free (input_path);
-				if (type == UP_DEVICE_KIND_UNKNOWN) {
-					type = UP_DEVICE_KIND_KEYBOARD;
-				}
-			}
-
-			if (type == UP_DEVICE_KIND_UNKNOWN) {
-				type = UP_DEVICE_KIND_BATTERY;
-			}
-		} else if (g_ascii_strcasecmp (device_type, "USB") == 0) {
-
-			/* use a heuristic to find the device type */
-			if (g_strstr_len (native_path, -1, "wacom_") != NULL) {
-				type = UP_DEVICE_KIND_TABLET;
-			} else {
-				g_warning ("did not recognise USB path %s, please report",
-					   native_path);
-			}
-		} else {
-			g_warning ("did not recognise type %s, please report", device_type);
-		}
-	}
+	type = up_device_supply_guess_type (native, native_path);
 
 	/* if reading the device type did not work, use the previous method */
 	if (type == UP_DEVICE_KIND_UNKNOWN) {
@@ -1049,9 +1130,7 @@ up_device_supply_coldplug (UpDevice *device)
 
 	/* coldplug values */
 	ret = up_device_supply_refresh (device);
-out:
-	g_free (device_type);
-	return ret;
+	return (ret != REFRESH_RESULT_FAILURE);
 }
 
 /**
@@ -1068,9 +1147,9 @@ up_device_supply_setup_unknown_poll (UpDevice      *device,
 
 	/* if it's unknown, poll faster than we would normally */
 	if (state == UP_DEVICE_STATE_UNKNOWN &&
-	    supply->priv->unknown_retries < UP_DEVICE_SUPPLY_UNKNOWN_RETRIES) {
+	    supply->priv->unknown_retries < UP_DAEMON_UNKNOWN_RETRIES) {
 		supply->priv->poll_timer_id =
-			g_timeout_add_seconds (UP_DEVICE_SUPPLY_UNKNOWN_TIMEOUT,
+			g_timeout_add_seconds (UP_DAEMON_UNKNOWN_TIMEOUT,
 					       (GSourceFunc) up_device_supply_poll_unknown_battery, supply);
 		g_source_set_name_by_id (supply->priv->poll_timer_id, "[upower] up_device_supply_poll_unknown_battery (linux)");
 
@@ -1090,15 +1169,10 @@ up_device_supply_disable_unknown_poll (UpDevice *device)
 	}
 }
 
-/**
- * up_device_supply_refresh:
- *
- * Return %TRUE on success, %FALSE if we failed to refresh or no data
- **/
 static gboolean
 up_device_supply_refresh (UpDevice *device)
 {
-	gboolean ret;
+	RefreshResult ret;
 	UpDeviceSupply *supply = UP_DEVICE_SUPPLY (device);
 	UpDeviceKind type;
 	UpDeviceState state;
@@ -1119,10 +1193,10 @@ up_device_supply_refresh (UpDevice *device)
 	}
 
 	/* reset time if we got new data */
-	if (ret)
+	if (ret == REFRESH_RESULT_SUCCESS)
 		g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
 
-	return ret;
+	return (ret != REFRESH_RESULT_FAILURE);
 }
 
 /**

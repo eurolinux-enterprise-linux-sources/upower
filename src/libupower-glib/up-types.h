@@ -48,6 +48,7 @@ typedef enum {
 	UP_DEVICE_KIND_MEDIA_PLAYER,
 	UP_DEVICE_KIND_TABLET,
 	UP_DEVICE_KIND_COMPUTER,
+	UP_DEVICE_KIND_GAMING_INPUT,
 	UP_DEVICE_KIND_LAST
 } UpDeviceKind;
 
@@ -86,7 +87,16 @@ typedef enum {
 /**
  * UpDeviceLevel:
  *
- * The warning level of a battery.
+ * The level of a battery. Only values up to, and including
+ * %UP_DEVICE_LEVEL_ACTION are relevant for the #WarningLevel.
+ * The #BatteryLevel only uses the following values:
+ * - %UP_DEVICE_LEVEL_UNKNOWN
+ * - %UP_DEVICE_LEVEL_NONE
+ * - %UP_DEVICE_LEVEL_LOW
+ * - %UP_DEVICE_LEVEL_CRITICAL
+ * - %UP_DEVICE_LEVEL_NORMAL
+ * - %UP_DEVICE_LEVEL_HIGH
+ * - %UP_DEVICE_LEVEL_FULL
  **/
 typedef enum {
 	UP_DEVICE_LEVEL_UNKNOWN,
@@ -95,6 +105,9 @@ typedef enum {
 	UP_DEVICE_LEVEL_LOW,
 	UP_DEVICE_LEVEL_CRITICAL,
 	UP_DEVICE_LEVEL_ACTION,
+	UP_DEVICE_LEVEL_NORMAL,
+	UP_DEVICE_LEVEL_HIGH,
+	UP_DEVICE_LEVEL_FULL,
 	UP_DEVICE_LEVEL_LAST
 } UpDeviceLevel;
 

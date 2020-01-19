@@ -9,14 +9,16 @@
   </refnamediv>
   <refsynopsisdiv role="synopsis">
     <title role="synopsis.title">Methods</title>
-    <synopsis><link linkend="KbdBacklight.GetMaxBrightness">GetMaxBrightness</link>(out'i'value)
-<link linkend="KbdBacklight.GetBrightness">GetBrightness</link>(out'i'value)
-<link linkend="KbdBacklight.SetBrightness">SetBrightness</link>(in'i'value)
+    <synopsis><link linkend="KbdBacklight.GetMaxBrightness">GetMaxBrightness</link> (out 'i' value)
+<link linkend="KbdBacklight.GetBrightness">GetBrightness</link>    (out 'i' value)
+<link linkend="KbdBacklight.SetBrightness">SetBrightness</link>    (in  'i' value)
 </synopsis>
   </refsynopsisdiv>
   <refsect1 role="signal_proto">
     <title role="signal_proto.title">Signals</title>
-    <synopsis><link linkend="KbdBacklight::BrightnessChanged">BrightnessChanged</link>('i'value)
+    <synopsis><link linkend="KbdBacklight::BrightnessChanged">BrightnessChanged</link>           ('i' value)
+<link linkend="KbdBacklight::BrightnessChangedWithSource">BrightnessChangedWithSource</link> ('i' value,
+                             's' source)
 </synopsis>
   </refsect1>
   <refsect1 role="impl_interfaces">
@@ -39,30 +41,43 @@
       
     </para>
   </refsect1>
-  <refsect1 role="details"><title role="details.title">Details</title><refsect2><title><anchor role="function" id="KbdBacklight.GetMaxBrightness"/>GetMaxBrightness ()</title><indexterm><primary>GetMaxBrightness</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>GetMaxBrightness (out'i'value)</programlisting></refsect2>
+  <refsect1 role="details"><title role="details.title">Details</title><refsect2><title><anchor role="function" id="KbdBacklight.GetMaxBrightness"/>GetMaxBrightness ()</title><indexterm><primary>GetMaxBrightness</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>GetMaxBrightness (out 'i' value)</programlisting></refsect2>
           <para>
             Get the maximum brightness level for the keyboard backlight.
           </para>
         <variablelist role="params"><varlistentry><term><parameter>value</parameter>:</term><listitem><simpara>
             The maximum value of the keyboard backlight brightness.
-          </simpara></listitem></varlistentry></variablelist><refsect3><title>Errors</title><variablelist role="errors"><varlistentry><term><parameter>org.freedesktop.UPower.GeneralError</parameter>:</term><listitem><simpara>if an error occured while getting the maximum brightness</simpara></listitem></varlistentry></variablelist></refsect3><refsect2><title><anchor role="function" id="KbdBacklight.GetBrightness"/>GetBrightness ()</title><indexterm><primary>GetBrightness</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>GetBrightness (out'i'value)</programlisting></refsect2>
+          </simpara></listitem></varlistentry></variablelist><refsect3><title>Errors</title><variablelist role="errors"><varlistentry><term><parameter>org.freedesktop.UPower.GeneralError</parameter>:</term><listitem><simpara>if an error occured while getting the maximum brightness</simpara></listitem></varlistentry></variablelist></refsect3><refsect2><title><anchor role="function" id="KbdBacklight.GetBrightness"/>GetBrightness ()</title><indexterm><primary>GetBrightness</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>GetBrightness (out 'i' value)</programlisting></refsect2>
           <para>
             Get the brightness level of the keyboard backlight.
           </para>
         <variablelist role="params"><varlistentry><term><parameter>value</parameter>:</term><listitem><simpara>
             The current value of the keyboard backlight brightness.
-          </simpara></listitem></varlistentry></variablelist><refsect3><title>Errors</title><variablelist role="errors"><varlistentry><term><parameter>org.freedesktop.UPower.GeneralError</parameter>:</term><listitem><simpara>if an error occured while getting the brightness</simpara></listitem></varlistentry></variablelist></refsect3><refsect2><title><anchor role="function" id="KbdBacklight.SetBrightness"/>SetBrightness ()</title><indexterm><primary>SetBrightness</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>SetBrightness (in'i'value)</programlisting></refsect2>
+          </simpara></listitem></varlistentry></variablelist><refsect3><title>Errors</title><variablelist role="errors"><varlistentry><term><parameter>org.freedesktop.UPower.GeneralError</parameter>:</term><listitem><simpara>if an error occured while getting the brightness</simpara></listitem></varlistentry></variablelist></refsect3><refsect2><title><anchor role="function" id="KbdBacklight.SetBrightness"/>SetBrightness ()</title><indexterm><primary>SetBrightness</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>SetBrightness (in  'i' value)</programlisting></refsect2>
           <para>
             Set the brightness level of the keyboard backlight.
           </para>
         <variablelist role="params"><varlistentry><term><parameter>value</parameter>:</term><listitem><simpara>
             The value to set the KbdBacklight brightness.
           </simpara></listitem></varlistentry></variablelist><refsect3><title>Errors</title><variablelist role="errors"><varlistentry><term><parameter>org.freedesktop.UPower.GeneralError</parameter>:</term><listitem><simpara>if an error occured while setting the brightness</simpara></listitem></varlistentry></variablelist></refsect3></refsect1>
-  <refsect1 role="signals"><title role="signals.title">Signal Details</title><refsect2><title><anchor role="function" id="KbdBacklight::BrightnessChanged"/>The BrightnessChanged signal</title><indexterm><primary>BrightnessChanged</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>BrightnessChanged ('i'value)</programlisting></refsect2>
+  <refsect1 role="signals"><title role="signals.title">Signal Details</title><refsect2><title><anchor role="function" id="KbdBacklight::BrightnessChanged"/>The BrightnessChanged signal</title><indexterm><primary>BrightnessChanged</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>BrightnessChanged ('i' value)</programlisting></refsect2>
           <para>
 	    The keyboard backlight brightness level has changed.
           </para>
         <variablelist role="params"><varlistentry><term><parameter>value</parameter>:</term><listitem><simpara>
             The new brightness value of the keyboard backlight.
+          </simpara></listitem></varlistentry></variablelist><refsect2><title><anchor role="function" id="KbdBacklight::BrightnessChangedWithSource"/>The BrightnessChangedWithSource signal</title><indexterm><primary>BrightnessChangedWithSource</primary><secondary>KbdBacklight</secondary></indexterm><programlisting>BrightnessChangedWithSource ('i' value,
+                             's' source)</programlisting></refsect2>
+          <para>
+	    The keyboard backlight brightness level has changed including
+	    information about the source of the change.
+          </para>
+        <variablelist role="params"><varlistentry><term><parameter>value</parameter>:</term><listitem><simpara>
+            The new brightness value of the keyboard backlight.
+          </simpara></listitem></varlistentry><varlistentry><term><parameter>source</parameter>:</term><listitem><simpara>
+            Source of the keyboard backlight brightness change, either
+            "external" if SetBrightness was called, or "internal" if the
+            hardware changed the keyboard brightness itself (automatically or
+            through a firmware-handled hotkey being pressed).
           </simpara></listitem></varlistentry></variablelist></refsect1>
 </refentry>

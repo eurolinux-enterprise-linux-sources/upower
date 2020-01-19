@@ -2,8 +2,8 @@
 
 Summary:        Power Management Service
 Name:           upower
-Version:        0.99.4
-Release:        2%{?dist}
+Version:        0.99.7
+Release:        1%{?dist}
 License:        GPLv2+
 Group:          System Environment/Libraries
 URL:            http://upower.freedesktop.org/
@@ -21,10 +21,9 @@ BuildRequires:  libimobiledevice-devel
 BuildRequires:  glib2-devel >= 2.6.0
 BuildRequires:  gobject-introspection-devel
 BuildRequires:  gtk-doc
+BuildRequires:  systemd
 Requires:       udev
 Requires:       gobject-introspection
-
-Patch0:         0001-daemon-fix-get_critical_action.patch
 
 %if 0%{?fedora}
 # From rhughes-f20-gnome-3-12 copr
@@ -112,6 +111,12 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %{_datadir}/gtk-doc/html/UPower/*
 
 %changelog
+* Tue Nov 28 2017 Bastien Nocera <bnocera@redhat.com> - 0.99.7-1
+- Update to 0.99.7
+- Add Bluetooth LE battery support
+- Fix critical action after resume from hibernate
+  Resolves: #1584245
+
 * Fri Mar 10 2017 Kalev Lember <klember@redhat.com> - 0.99.4-2
 - Rebuilt for libplist 1.2
 - Resolves: #1387051

@@ -3,12 +3,12 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>org.freedesktop.UPower.Device: UPower Reference Manual</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
+<meta name="generator" content="DocBook XSL Stylesheets Vsnapshot">
 <link rel="home" href="index.html" title="UPower Reference Manual">
 <link rel="up" href="ref-dbus.html" title="D-Bus API Reference">
 <link rel="prev" href="UPower.html" title="org.freedesktop.UPower">
 <link rel="next" href="KbdBacklight.html" title="org.freedesktop.UPower.KbdBacklight">
-<meta name="generator" content="GTK-Doc V1.24 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.26 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -35,13 +35,13 @@
 </tr></table></div>
 <div class="refsynopsisdiv">
 <h2>Methods</h2>
-<pre class="synopsis"><a class="link" href="Device.html#Device.Refresh">Refresh</a>()
-<a class="link" href="Device.html#Device.GetHistory">GetHistory</a>(in's'type,
-in'u'timespan,
-in'u'resolution,
-out'a(udu)'data)
-<a class="link" href="Device.html#Device.GetStatistics">GetStatistics</a>(in's'type,
-out'a(dd)'data)
+<pre class="synopsis"><a class="link" href="Device.html#Device.Refresh">Refresh</a>       ()
+<a class="link" href="Device.html#Device.GetHistory">GetHistory</a>    (in  's'      type,
+               in  'u'      timespan,
+               in  'u'      resolution,
+               out 'a(udu)' data)
+<a class="link" href="Device.html#Device.GetStatistics">GetStatistics</a> (in  's'      type,
+               out 'a(dd)'  data)
 </pre>
 </div>
 <div class="refsect1">
@@ -54,34 +54,35 @@ out'a(dd)'data)
 </div>
 <div class="refsect1">
 <a name="id-1.2.4.5"></a><h2>Properties</h2>
-<pre class="synopsis"><a class="link" href="Device.html#Device:NativePath">'NativePath'</a>read's'
-<a class="link" href="Device.html#Device:Vendor">'Vendor'</a>read's'
-<a class="link" href="Device.html#Device:Model">'Model'</a>read's'
-<a class="link" href="Device.html#Device:Serial">'Serial'</a>read's'
-<a class="link" href="Device.html#Device:UpdateTime">'UpdateTime'</a>read't'
-<a class="link" href="Device.html#Device:Type">'Type'</a>read'u'
-<a class="link" href="Device.html#Device:PowerSupply">'PowerSupply'</a>read'b'
-<a class="link" href="Device.html#Device:HasHistory">'HasHistory'</a>read'b'
-<a class="link" href="Device.html#Device:HasStatistics">'HasStatistics'</a>read'b'
-<a class="link" href="Device.html#Device:Online">'Online'</a>read'b'
-<a class="link" href="Device.html#Device:Energy">'Energy'</a>read'd'
-<a class="link" href="Device.html#Device:EnergyEmpty">'EnergyEmpty'</a>read'd'
-<a class="link" href="Device.html#Device:EnergyFull">'EnergyFull'</a>read'd'
-<a class="link" href="Device.html#Device:EnergyFullDesign">'EnergyFullDesign'</a>read'd'
-<a class="link" href="Device.html#Device:EnergyRate">'EnergyRate'</a>read'd'
-<a class="link" href="Device.html#Device:Voltage">'Voltage'</a>read'd'
-<a class="link" href="Device.html#Device:Luminosity">'Luminosity'</a>read'd'
-<a class="link" href="Device.html#Device:TimeToEmpty">'TimeToEmpty'</a>read'x'
-<a class="link" href="Device.html#Device:TimeToFull">'TimeToFull'</a>read'x'
-<a class="link" href="Device.html#Device:Percentage">'Percentage'</a>read'd'
-<a class="link" href="Device.html#Device:Temperature">'Temperature'</a>read'd'
-<a class="link" href="Device.html#Device:IsPresent">'IsPresent'</a>read'b'
-<a class="link" href="Device.html#Device:State">'State'</a>read'u'
-<a class="link" href="Device.html#Device:IsRechargeable">'IsRechargeable'</a>read'b'
-<a class="link" href="Device.html#Device:Capacity">'Capacity'</a>read'd'
-<a class="link" href="Device.html#Device:Technology">'Technology'</a>read'u'
-<a class="link" href="Device.html#Device:WarningLevel">'WarningLevel'</a>read'u'
-<a class="link" href="Device.html#Device:IconName">'IconName'</a>read's'
+<pre class="synopsis"><a class="link" href="Device.html#Device:NativePath">'NativePath'</a>       read      's'
+<a class="link" href="Device.html#Device:Vendor">'Vendor'</a>           read      's'
+<a class="link" href="Device.html#Device:Model">'Model'</a>            read      's'
+<a class="link" href="Device.html#Device:Serial">'Serial'</a>           read      's'
+<a class="link" href="Device.html#Device:UpdateTime">'UpdateTime'</a>       read      't'
+<a class="link" href="Device.html#Device:Type">'Type'</a>             read      'u'
+<a class="link" href="Device.html#Device:PowerSupply">'PowerSupply'</a>      read      'b'
+<a class="link" href="Device.html#Device:HasHistory">'HasHistory'</a>       read      'b'
+<a class="link" href="Device.html#Device:HasStatistics">'HasStatistics'</a>    read      'b'
+<a class="link" href="Device.html#Device:Online">'Online'</a>           read      'b'
+<a class="link" href="Device.html#Device:Energy">'Energy'</a>           read      'd'
+<a class="link" href="Device.html#Device:EnergyEmpty">'EnergyEmpty'</a>      read      'd'
+<a class="link" href="Device.html#Device:EnergyFull">'EnergyFull'</a>       read      'd'
+<a class="link" href="Device.html#Device:EnergyFullDesign">'EnergyFullDesign'</a> read      'd'
+<a class="link" href="Device.html#Device:EnergyRate">'EnergyRate'</a>       read      'd'
+<a class="link" href="Device.html#Device:Voltage">'Voltage'</a>          read      'd'
+<a class="link" href="Device.html#Device:Luminosity">'Luminosity'</a>       read      'd'
+<a class="link" href="Device.html#Device:TimeToEmpty">'TimeToEmpty'</a>      read      'x'
+<a class="link" href="Device.html#Device:TimeToFull">'TimeToFull'</a>       read      'x'
+<a class="link" href="Device.html#Device:Percentage">'Percentage'</a>       read      'd'
+<a class="link" href="Device.html#Device:Temperature">'Temperature'</a>      read      'd'
+<a class="link" href="Device.html#Device:IsPresent">'IsPresent'</a>        read      'b'
+<a class="link" href="Device.html#Device:State">'State'</a>            read      'u'
+<a class="link" href="Device.html#Device:IsRechargeable">'IsRechargeable'</a>   read      'b'
+<a class="link" href="Device.html#Device:Capacity">'Capacity'</a>         read      'd'
+<a class="link" href="Device.html#Device:Technology">'Technology'</a>       read      'u'
+<a class="link" href="Device.html#Device:WarningLevel">'WarningLevel'</a>     read      'u'
+<a class="link" href="Device.html#Device:BatteryLevel">'BatteryLevel'</a>     read      'u'
+<a class="link" href="Device.html#Device:IconName">'IconName'</a>         read      's'
 </pre>
 </div>
 <div class="refsect1">
@@ -215,10 +216,10 @@ out'a(dd)'data)
 106</pre></td>
         <td class="listing_code"><pre class="programlisting"><span class="normal">$ dbus</span><span class="symbol">-</span><span class="normal">send </span><span class="symbol">--</span><span class="normal">print</span><span class="symbol">-</span><span class="normal">reply </span><span class="symbol">\</span>
 <span class="normal">            </span><span class="symbol">--</span><span class="normal">system </span><span class="symbol">\</span>
-<span class="normal">            </span><span class="symbol">--</span><span class="normal">dest</span><span class="symbol">=</span><span class="normal">org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal"><a href="UPower.html">UPower</a> </span><span class="symbol">\</span>
-<span class="normal">            </span><span class="symbol">/</span><span class="normal">org</span><span class="symbol">/</span><span class="normal">freedesktop</span><span class="symbol">/</span><span class="normal"><a href="UPower.html">UPower</a></span><span class="symbol">/</span><span class="normal">devices</span><span class="symbol">/</span><span class="normal">battery_BAT0 </span><span class="symbol">\</span>
+<span class="normal">            </span><span class="symbol">--</span><span class="normal">dest</span><span class="symbol">=</span><span class="normal">org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal">UPower </span><span class="symbol">\</span>
+<span class="normal">            </span><span class="symbol">/</span><span class="normal">org</span><span class="symbol">/</span><span class="normal">freedesktop</span><span class="symbol">/</span><span class="normal">UPower</span><span class="symbol">/</span><span class="normal">devices</span><span class="symbol">/</span><span class="normal">battery_BAT0 </span><span class="symbol">\</span>
 <span class="normal">            org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal">DBus</span><span class="symbol">.</span><span class="normal">Properties</span><span class="symbol">.</span><span class="normal">GetAll </span><span class="symbol">\</span>
-<span class="normal">            string</span><span class="symbol">:</span><span class="normal">org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal"><a href="UPower.html">UPower</a></span><span class="symbol">.</span><span class="normal"><a href="Device.html">Device</a></span>
+<span class="normal">            string</span><span class="symbol">:</span><span class="normal">org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal">UPower</span><span class="symbol">.</span><span class="normal">Device</span>
 
 <span class="normal">method </span><span class="usertype">return</span><span class="normal"> sender</span><span class="symbol">=:</span><span class="number">1.386</span><span class="normal"> </span><span class="symbol">-&gt;</span><span class="normal"> dest</span><span class="symbol">=:</span><span class="number">1.477</span><span class="normal"> reply_serial</span><span class="symbol">=</span><span class="number">2</span>
 <span class="normal">   array </span><span class="symbol">[</span>
@@ -374,10 +375,10 @@ out'a(dd)'data)
 <div class="refsect2">
 <a name="id-1.2.4.7.7"></a><h3>
 <a name="Device.GetHistory"></a>GetHistory ()</h3>
-<pre class="programlisting">GetHistory (in's'type,
-in'u'timespan,
-in'u'resolution,
-out'a(udu)'data)</pre>
+<pre class="programlisting">GetHistory (in  's'      type,
+            in  'u'      timespan,
+            in  'u'      resolution,
+            out 'a(udu)' data)</pre>
 </div>
 <p>
             Gets history for the power device that is persistent across reboots.
@@ -433,8 +434,8 @@ out'a(udu)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.7.10"></a><h3>
 <a name="Device.GetStatistics"></a>GetStatistics ()</h3>
-<pre class="programlisting">GetStatistics (in's'type,
-out'a(dd)'data)</pre>
+<pre class="programlisting">GetStatistics (in  's'     type,
+               out 'a(dd)' data)</pre>
 </div>
 <p>
             Gets statistics for the power device that may be interesting
@@ -476,7 +477,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.2"></a><h3>
 <a name="Device:NativePath"></a>The "NativePath" property</h3>
-<pre class="programlisting">'NativePath'read's'
+<pre class="programlisting">'NativePath'  read      's'
 </pre>
 </div>
 <p>
@@ -497,7 +498,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.5"></a><h3>
 <a name="Device:Vendor"></a>The "Vendor" property</h3>
-<pre class="programlisting">'Vendor'read's'
+<pre class="programlisting">'Vendor'  read      's'
 </pre>
 </div>
 <p>
@@ -514,7 +515,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.8"></a><h3>
 <a name="Device:Model"></a>The "Model" property</h3>
-<pre class="programlisting">'Model'read's'
+<pre class="programlisting">'Model'  read      's'
 </pre>
 </div>
 <p>
@@ -531,7 +532,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.11"></a><h3>
 <a name="Device:Serial"></a>The "Serial" property</h3>
-<pre class="programlisting">'Serial'read's'
+<pre class="programlisting">'Serial'  read      's'
 </pre>
 </div>
 <p>
@@ -548,7 +549,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.14"></a><h3>
 <a name="Device:UpdateTime"></a>The "UpdateTime" property</h3>
-<pre class="programlisting">'UpdateTime'read't'
+<pre class="programlisting">'UpdateTime'  read      't'
 </pre>
 </div>
 <p>
@@ -566,7 +567,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.17"></a><h3>
 <a name="Device:Type"></a>The "Type" property</h3>
-<pre class="programlisting">'Type'read'u'
+<pre class="programlisting">'Type'  read      'u'
 </pre>
 </div>
 <p>
@@ -603,7 +604,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.21"></a><h3>
 <a name="Device:PowerSupply"></a>The "PowerSupply" property</h3>
-<pre class="programlisting">'PowerSupply'read'b'
+<pre class="programlisting">'PowerSupply'  read      'b'
 </pre>
 </div>
 <p>
@@ -622,7 +623,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.24"></a><h3>
 <a name="Device:HasHistory"></a>The "HasHistory" property</h3>
-<pre class="programlisting">'HasHistory'read'b'
+<pre class="programlisting">'HasHistory'  read      'b'
 </pre>
 </div>
 <p>
@@ -639,7 +640,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.27"></a><h3>
 <a name="Device:HasStatistics"></a>The "HasStatistics" property</h3>
-<pre class="programlisting">'HasStatistics'read'b'
+<pre class="programlisting">'HasStatistics'  read      'b'
 </pre>
 </div>
 <p>
@@ -656,7 +657,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.30"></a><h3>
 <a name="Device:Online"></a>The "Online" property</h3>
-<pre class="programlisting">'Online'read'b'
+<pre class="programlisting">'Online'  read      'b'
 </pre>
 </div>
 <p>
@@ -676,7 +677,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.33"></a><h3>
 <a name="Device:Energy"></a>The "Energy" property</h3>
-<pre class="programlisting">'Energy'read'd'
+<pre class="programlisting">'Energy'  read      'd'
 </pre>
 </div>
 <p>
@@ -699,7 +700,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.37"></a><h3>
 <a name="Device:EnergyEmpty"></a>The "EnergyEmpty" property</h3>
-<pre class="programlisting">'EnergyEmpty'read'd'
+<pre class="programlisting">'EnergyEmpty'  read      'd'
 </pre>
 </div>
 <p>
@@ -722,7 +723,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.41"></a><h3>
 <a name="Device:EnergyFull"></a>The "EnergyFull" property</h3>
-<pre class="programlisting">'EnergyFull'read'd'
+<pre class="programlisting">'EnergyFull'  read      'd'
 </pre>
 </div>
 <p>
@@ -745,7 +746,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.45"></a><h3>
 <a name="Device:EnergyFullDesign"></a>The "EnergyFullDesign" property</h3>
-<pre class="programlisting">'EnergyFullDesign'read'd'
+<pre class="programlisting">'EnergyFullDesign'  read      'd'
 </pre>
 </div>
 <p>
@@ -768,7 +769,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.49"></a><h3>
 <a name="Device:EnergyRate"></a>The "EnergyRate" property</h3>
-<pre class="programlisting">'EnergyRate'read'd'
+<pre class="programlisting">'EnergyRate'  read      'd'
 </pre>
 </div>
 <p>
@@ -792,7 +793,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.53"></a><h3>
 <a name="Device:Voltage"></a>The "Voltage" property</h3>
-<pre class="programlisting">'Voltage'read'd'
+<pre class="programlisting">'Voltage'  read      'd'
 </pre>
 </div>
 <p>
@@ -809,7 +810,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.56"></a><h3>
 <a name="Device:Luminosity"></a>The "Luminosity" property</h3>
-<pre class="programlisting">'Luminosity'read'd'
+<pre class="programlisting">'Luminosity'  read      'd'
 </pre>
 </div>
 <p>
@@ -826,7 +827,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.59"></a><h3>
 <a name="Device:TimeToEmpty"></a>The "TimeToEmpty" property</h3>
-<pre class="programlisting">'TimeToEmpty'read'x'
+<pre class="programlisting">'TimeToEmpty'  read      'x'
 </pre>
 </div>
 <p>
@@ -849,7 +850,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.63"></a><h3>
 <a name="Device:TimeToFull"></a>The "TimeToFull" property</h3>
-<pre class="programlisting">'TimeToFull'read'x'
+<pre class="programlisting">'TimeToFull'  read      'x'
 </pre>
 </div>
 <p>
@@ -872,7 +873,7 @@ out'a(dd)'data)</pre>
 <div class="refsect2">
 <a name="id-1.2.4.8.67"></a><h3>
 <a name="Device:Percentage"></a>The "Percentage" property</h3>
-<pre class="programlisting">'Percentage'read'd'
+<pre class="programlisting">'Percentage'  read      'd'
 </pre>
 </div>
 <p>
@@ -891,6 +892,10 @@ out'a(dd)'data)</pre>
             <code class="literal">type</code>
             has the value "battery".
           </p>
+<p>
+            The percentage will be an approximation if the <code class="literal">battery level</code>
+            is set to something other than None. The percentage is kept for compatibility reasons.
+          </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
 <col align="left" valign="top">
@@ -900,9 +905,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.71"></a><h3>
+<a name="id-1.2.4.8.72"></a><h3>
 <a name="Device:Temperature"></a>The "Temperature" property</h3>
-<pre class="programlisting">'Temperature'read'd'
+<pre class="programlisting">'Temperature'  read      'd'
 </pre>
 </div>
 <p>
@@ -920,9 +925,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.74"></a><h3>
+<a name="id-1.2.4.8.75"></a><h3>
 <a name="Device:IsPresent"></a>The "IsPresent" property</h3>
-<pre class="programlisting">'IsPresent'read'b'
+<pre class="programlisting">'IsPresent'  read      'b'
 </pre>
 </div>
 <p>
@@ -944,9 +949,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.78"></a><h3>
+<a name="id-1.2.4.8.79"></a><h3>
 <a name="Device:State"></a>The "State" property</h3>
-<pre class="programlisting">'State'read'u'
+<pre class="programlisting">'State'  read      'u'
 </pre>
 </div>
 <p>
@@ -982,9 +987,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.83"></a><h3>
+<a name="id-1.2.4.8.84"></a><h3>
 <a name="Device:IsRechargeable"></a>The "IsRechargeable" property</h3>
-<pre class="programlisting">'IsRechargeable'read'b'
+<pre class="programlisting">'IsRechargeable'  read      'b'
 </pre>
 </div>
 <p>
@@ -1004,9 +1009,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.87"></a><h3>
+<a name="id-1.2.4.8.88"></a><h3>
 <a name="Device:Capacity"></a>The "Capacity" property</h3>
-<pre class="programlisting">'Capacity'read'd'
+<pre class="programlisting">'Capacity'  read      'd'
 </pre>
 </div>
 <p>
@@ -1033,9 +1038,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.91"></a><h3>
+<a name="id-1.2.4.8.92"></a><h3>
 <a name="Device:Technology"></a>The "Technology" property</h3>
-<pre class="programlisting">'Technology'read'u'
+<pre class="programlisting">'Technology'  read      'u'
 </pre>
 </div>
 <p>
@@ -1071,9 +1076,9 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.96"></a><h3>
+<a name="id-1.2.4.8.97"></a><h3>
 <a name="Device:WarningLevel"></a>The "WarningLevel" property</h3>
-<pre class="programlisting">'WarningLevel'read'u'
+<pre class="programlisting">'WarningLevel'  read      'u'
 </pre>
 </div>
 <p>
@@ -1102,9 +1107,43 @@ out'a(dd)'data)</pre>
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="id-1.2.4.8.100"></a><h3>
+<a name="id-1.2.4.8.101"></a><h3>
+<a name="Device:BatteryLevel"></a>The "BatteryLevel" property</h3>
+<pre class="programlisting">'BatteryLevel'  read      'u'
+</pre>
+</div>
+<p>
+            The level of the battery for devices which do not report a percentage but rather a coarse battery level. If the value
+            is None, then the device does not support coarse battery reporting, and the percentage should be used instead.
+          </p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
+<li class="listitem">
+<span class="bold"><strong>0: </strong></span>Unknown</li>
+<li class="listitem">
+<span class="bold"><strong>1: </strong></span>None (the battery does not use a coarse level of battery reporting)</li>
+<li class="listitem">
+<span class="bold"><strong>3: </strong></span>Low</li>
+<li class="listitem">
+<span class="bold"><strong>4: </strong></span>Critical</li>
+<li class="listitem">
+<span class="bold"><strong>6: </strong></span>Normal</li>
+<li class="listitem">
+<span class="bold"><strong>7: </strong></span>High</li>
+<li class="listitem">
+<span class="bold"><strong>8: </strong></span>Full</li>
+</ul></div>
+<div class="variablelist"><table border="0" class="variablelist">
+<colgroup>
+<col align="left" valign="top">
+<col>
+</colgroup>
+<tbody></tbody>
+</table></div>
+<hr>
+<div class="refsect2">
+<a name="id-1.2.4.8.105"></a><h3>
 <a name="Device:IconName"></a>The "IconName" property</h3>
-<pre class="programlisting">'IconName'read's'
+<pre class="programlisting">'IconName'  read      's'
 </pre>
 </div>
 <p>
@@ -1120,6 +1159,6 @@ out'a(dd)'data)</pre>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.24</div>
+<hr>Generated by GTK-Doc V1.26</div>
 </body>
 </html>

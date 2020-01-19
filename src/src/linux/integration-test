@@ -19,6 +19,7 @@
 
 import os
 import sys
+import dbus
 import tempfile
 import subprocess
 import unittest
@@ -41,9 +42,19 @@ except ImportError:
     sys.stderr.write('Skipping tests, umockdev not available (https://launchpad.net/umockdev/)\n')
     sys.exit(0)
 
+try:
+    import dbusmock
+except ImportError:
+    sys.stderr.write('Skipping tests, python-dbusmock not available (http://pypi.python.org/pypi/python-dbusmock).\n')
+    sys.exit(0)
+
+
 UP = 'org.freedesktop.UPower'
 UP_DEVICE = 'org.freedesktop.UPower.Device'
 UP_DISPLAY_OBJECT_PATH = '/org/freedesktop/UPower/devices/DisplayDevice'
+
+DEVICE_IFACE = 'org.bluez.Device1'
+BATTERY_IFACE = 'org.bluez.Battery1'
 
 (UP_DEVICE_STATE_UNKNOWN,
  UP_DEVICE_STATE_CHARGING,
@@ -56,9 +67,25 @@ UP_DISPLAY_OBJECT_PATH = '/org/freedesktop/UPower/devices/DisplayDevice'
  UP_DEVICE_LEVEL_DISCHARGING,
  UP_DEVICE_LEVEL_LOW,
  UP_DEVICE_LEVEL_CRITICAL,
- UP_DEVICE_LEVEL_ACTION) = (0, 1, 2, 3, 4, 5)
+ UP_DEVICE_LEVEL_ACTION,
+ UP_DEVICE_LEVEL_NORMAL,
+ UP_DEVICE_LEVEL_HIGH,
+ UP_DEVICE_LEVEL_FULL) = (0, 1, 2, 3, 4, 5, 6, 7, 8)
 
-class Tests(unittest.TestCase):
+(UP_DEVICE_KIND_UNKNOWN,
+ UP_DEVICE_KIND_LINE_POWER,
+ UP_DEVICE_KIND_BATTERY,
+ UP_DEVICE_KIND_UPS,
+ UP_DEVICE_KIND_MONITOR,
+ UP_DEVICE_KIND_MOUSE,
+ UP_DEVICE_KIND_KEYBOARD,
+ UP_DEVICE_KIND_PDA,
+ UP_DEVICE_KIND_PHONE,
+ UP_DEVICE_KIND_MEDIA_PLAYER,
+ UP_DEVICE_KIND_TABLET,
+ UP_DEVICE_KIND_COMPUTER) = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+
+class Tests(dbusmock.DBusTestCase):
     @classmethod
     def setUpClass(cls):
         # run from local build tree if we are in one, otherwise use system instance
@@ -66,6 +93,12 @@ class Tests(unittest.TestCase):
         if os.access(os.path.join(builddir, 'src', 'upowerd'), os.X_OK):
             cls.daemon_path = os.path.join(builddir, 'src', 'upowerd')
             print('Testing binaries from local build tree')
+            cls.local_daemon = True
+        elif os.environ.get('UNDER_JHBUILD', False):
+            jhbuild_prefix = os.environ['JHBUILD_PREFIX']
+            cls.daemon_path = os.path.join(jhbuild_prefix, 'libexec', 'upowerd')
+            print('Testing binaries from JHBuild')
+            cls.local_daemon = False
         else:
             print('Testing installed system binaries')
             cls.daemon_path = None
@@ -75,6 +108,7 @@ class Tests(unittest.TestCase):
                         cls.daemon_path = line.split('=', 1)[1].strip()
                         break
             assert cls.daemon_path, 'could not determine daemon path from D-BUS .service file'
+            cls.local_daemon = False
 
         # fail on CRITICALs on client side
         GLib.log_set_always_fatal(GLib.LogLevelFlags.LEVEL_WARNING |
@@ -91,10 +125,12 @@ class Tests(unittest.TestCase):
         os.environ['DBUS_SYSTEM_BUS_ADDRESS'] = cls.test_bus.get_bus_address()
 
         cls.dbus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        cls.dbus_con = cls.get_dbus(True)
 
     @classmethod
     def tearDownClass(cls):
         cls.test_bus.down()
+        dbusmock.DBusTestCase.tearDownClass()
 
     def setUp(self):
         '''Set up a local umockdev testbed.
@@ -106,10 +142,24 @@ class Tests(unittest.TestCase):
         self.proxy = None
         self.log = None
         self.daemon = None
+        self.logind = None
 
     def tearDown(self):
         del self.testbed
         self.stop_daemon()
+
+        if self.logind:
+            self.logind.stdout.close()
+            self.logind.terminate()
+            self.logind.wait()
+
+        try:
+            if self.bluez:
+                self.bluez.stdout.close()
+                self.bluez.terminate()
+                self.bluez.wait()
+        except:
+            pass
 
         # on failures, print daemon log
         errors = [x[1] for x in self._outcome.errors if x[1]]
@@ -123,7 +173,7 @@ class Tests(unittest.TestCase):
     # Daemon control and D-BUS I/O
     #
 
-    def start_daemon(self):
+    def start_daemon(self, cfgfile=None):
         '''Start daemon and create DBus proxy.
 
         Do this after adding the devices you want to test with. At the moment
@@ -133,12 +183,21 @@ class Tests(unittest.TestCase):
         When done, this sets self.proxy a the Gio.DBusProxy for upowerd.
         '''
         env = os.environ.copy()
+        if cfgfile is not None:
+            env['UPOWER_CONF_FILE_NAME'] = cfgfile
         env['G_DEBUG'] = 'fatal-criticals'
         # note: Python doesn't propagate the setenv from Testbed.new(), so we
         # have to do that ourselves
         env['UMOCKDEV_DIR'] = self.testbed.get_root_dir()
         self.log = tempfile.NamedTemporaryFile()
-        self.daemon = subprocess.Popen([self.daemon_path, '-v'],
+        if os.getenv('VALGRIND') != None:
+            if self.local_daemon:
+                daemon_path = ['libtool', '--mode=execute', 'valgrind', self.daemon_path, '-v']
+            else:
+                daemon_path = ['valgrind', self.daemon_path, '-v']
+        else:
+            daemon_path = [self.daemon_path, '-v']
+        self.daemon = subprocess.Popen(daemon_path,
                                        env=env, stdout=self.log,
                                        stderr=subprocess.STDOUT)
 
@@ -197,6 +256,40 @@ class Tests(unittest.TestCase):
             'org.freedesktop.DBus.Properties', None)
         return proxy.Get('(ss)', UP + '.Device', name)
 
+    def start_logind(self, parameters=None):
+        self.logind, self.logind_obj = self.spawn_server_template('logind',
+                                                                  parameters or {},
+                                                                  stdout=subprocess.PIPE)
+
+    def start_bluez(self, parameters=None):
+        self.bluez, self.bluez_obj = self.spawn_server_template('bluez5',
+                                                                  parameters or {},
+                                                                  stdout=subprocess.PIPE)
+
+    def have_text_in_log(self, text):
+        return self.count_text_in_log(text) > 0
+
+    def count_text_in_log(self, text):
+        with open(self.log.name) as f:
+            return f.read().count(text)
+
+    def assertEventually(self, condition, message=None, timeout=50):
+        '''Assert that condition function eventually returns True.
+
+        Timeout is in deciseconds, defaulting to 50 (5 seconds). message is
+        printed on failure.
+        '''
+        while timeout >= 0:
+            context = GLib.MainContext.default()
+            while context.iteration(False):
+                pass
+            if condition():
+                break
+            timeout -= 1
+            time.sleep(0.1)
+        else:
+            self.fail(message or 'timed out waiting for ' + str(condition))
+
     #
     # Actual test cases
     #
@@ -211,6 +304,7 @@ class Tests(unittest.TestCase):
         # without any devices we should assume AC
         self.assertEqual(self.get_dbus_property('OnBattery'), False)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+        self.stop_daemon()
 
     def test_no_devices(self):
         '''no devices'''
@@ -219,6 +313,7 @@ class Tests(unittest.TestCase):
         self.start_daemon()
         self.assertEqual(self.get_dbus_property('OnBattery'), False)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+        self.stop_daemon()
 
     def test_props_online_ac(self):
         '''properties with online AC'''
@@ -237,6 +332,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(ac_up, 'Type'), 1)
         self.assertEqual(self.get_dbus_dev_property(ac_up, 'Online'), True)
         self.assertEqual(self.get_dbus_dev_property(ac_up, 'NativePath'), 'AC')
+        self.stop_daemon()
 
     def test_props_offline_ac(self):
         '''properties with offline AC'''
@@ -367,6 +463,7 @@ class Tests(unittest.TestCase):
         # we aren't on low battery
         self.start_daemon()
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+        self.stop_daemon()
 
     def test_unknown_battery_status_with_ac(self):
         '''Unknown battery charge status, with AC'''
@@ -490,6 +587,7 @@ class Tests(unittest.TestCase):
                                 ['type', 'Battery',
                                  'present', '1',
                                  'status', 'Full',
+                                 'capacity_level', 'Normal\n',
                                  'current_now', '1000',
                                  'charge_now', '11000000',
                                  'charge_full', '10000000',
@@ -514,6 +612,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(bat0_up, 'Voltage'), 12.0)
         self.assertEqual(self.get_dbus_dev_property(bat0_up, 'PowerSupply'), True)
         self.assertEqual(self.get_dbus_dev_property(bat0_up, 'Type'), 2)
+        # capacity_level is unused because a 'capacity' attribute is present and used instead
+        self.assertEqual(self.get_dbus_dev_property(bat0_up, 'BatteryLevel'), UP_DEVICE_LEVEL_NONE)
         self.stop_daemon()
 
     def test_battery_temperature(self):
@@ -539,6 +639,22 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(bat0_up, 'Energy'), 1.5)
         self.assertEqual(self.get_dbus_property('OnBattery'), True)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_CRITICAL)
+        self.stop_daemon()
+
+    def test_battery_broken_name(self):
+        '''Battery with funky kernel name'''
+
+        self.testbed.add_device('power_supply', 'bq24735@5-0009', None,
+                                ['type', 'Battery',
+                                 'present', '1',
+                                 'status', 'unknown',
+                                 'energy_full', '60000000',
+                                 'energy_full_design', '80000000',
+                                 'energy_now', '48000000',
+                                 'voltage_now', '12000000'], [])
+
+        self.start_daemon()
+        self.assertEqual(self.get_dbus_display_property('IsPresent'), True)
         self.stop_daemon()
 
     def test_ups_no_ac(self):
@@ -590,6 +706,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(ups0_up, 'State'), UP_DEVICE_STATE_DISCHARGING)
         self.assertEqual(self.get_dbus_property('OnBattery'), True)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_ACTION)
+        self.stop_daemon()
 
     def test_ups_offline_ac(self):
         '''UPS properties with offline AC'''
@@ -630,6 +747,134 @@ class Tests(unittest.TestCase):
         # A plugged in UPS is always the one supplying the computer
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_ACTION)
         self.stop_daemon()
+
+    def test_refresh_after_sleep(self):
+        '''sleep/wake cycle to check we properly refresh the batteries'''
+
+        bat0 = self.testbed.add_device('power_supply', 'BAT0', None,
+                                       ['type', 'Battery',
+                                        'present', '1',
+                                        'status', 'Discharging',
+                                        'energy_full', '60000000',
+                                        'energy_full_design', '80000000',
+                                        'energy_now', '48000000',
+                                        'voltage_now', '12000000'], [])
+
+        self.start_logind()
+        self.start_daemon()
+
+        self.logind_obj.EmitSignal('', 'PrepareForSleep', 'b', [True])
+        self.assertEventually(lambda: self.have_text_in_log("Poll paused"), timeout=10)
+
+        # simulate some battery drain during sleep for which we then
+        # can check after we 'woke up'
+        self.testbed.set_attribute(bat0, 'energy_now', '40000000')
+
+        self.logind_obj.EmitSignal('', 'PrepareForSleep', 'b', [False])
+        self.assertEventually(lambda: self.have_text_in_log("Poll resumed"), timeout=10)
+
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+
+        bat0_up = devs[0]
+        self.assertEqual(self.get_dbus_dev_property(bat0_up, 'Energy'), 40.0)
+
+        self.stop_daemon()
+
+    def test_critical_action_is_taken_repeatedly(self):
+        '''check that critical action works repeatedly (eg. after resume)'''
+
+        bat0 = self.testbed.add_device('power_supply', 'BAT0', None,
+                                       ['type', 'Battery',
+                                        'present', '1',
+                                        'status', 'Discharging',
+                                        'energy_full', '60000000',
+                                        'energy_full_design', '80000000',
+                                        'energy_now', '50000000',
+                                        'voltage_now', '12000000'], [])
+
+        config = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        config.write("[UPower]\n")
+        config.write("UsePercentageForPolicy=true\n")
+        config.write("PercentageAction=5\n")
+        config.write("CriticalPowerAction=Hibernate\n")
+        config.close()
+
+        self.start_logind()
+        self.start_daemon(cfgfile=config.name)
+
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+        bat0_up = devs[0]
+
+        # simulate that battery has 1% (less than PercentageAction)
+        self.testbed.set_attribute(bat0, 'energy_now', '600000')
+        self.testbed.uevent(bat0, 'change')
+
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_ACTION)
+
+        time.sleep(20.5) # wait for UP_DAEMON_ACTION_DELAY
+        self.assertEqual(self.count_text_in_log("About to call logind method Hibernate"), 1)
+
+        # simulate that battery was charged to 100% during sleep
+        self.testbed.set_attribute(bat0, 'energy_now', '60000000')
+        self.testbed.uevent(bat0, 'change')
+
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+
+        # simulate that battery was drained to 1% again
+        self.testbed.set_attribute(bat0, 'energy_now', '600000')
+        self.testbed.uevent(bat0, 'change')
+
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_ACTION)
+
+        time.sleep(20.5) # wait for UP_DAEMON_ACTION_DELAY
+        self.assertEqual(self.count_text_in_log("About to call logind method Hibernate"), 2)
+
+        self.stop_daemon()
+
+        os.unlink(config.name)
+
+    def test_no_poll_batteries(self):
+        ''' setting NoPollBatteries option should disable polling'''
+
+        self.testbed.add_device('power_supply', 'BAT0', None,
+                                ['type', 'Battery',
+                                 'present', '1',
+                                 'status', 'Discharging',
+                                 'energy_full', '60000000',
+                                 'energy_full_design', '80000000',
+                                 'energy_now', '48000000',
+                                 'voltage_now', '12000000'], [])
+
+        config = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        config.write("[UPower]\n")
+        config.write("NoPollBatteries=true\n")
+        config.close()
+
+        self.start_logind()
+        self.start_daemon(cfgfile=config.name)
+
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+
+        self.logind_obj.EmitSignal('', 'PrepareForSleep', 'b', [True])
+        self.assertEventually(lambda: self.have_text_in_log("Polling will be paused"), timeout=10)
+
+        self.logind_obj.EmitSignal('', 'PrepareForSleep', 'b', [False])
+        self.assertEventually(lambda: self.have_text_in_log("Polling will be resumed"), timeout=10)
+
+        self.stop_daemon()
+
+        # Now make sure we don't have any actual polling setup for the battery
+        self.assertFalse(self.have_text_in_log("Setup poll for"))
+        self.assertFalse(self.have_text_in_log("Poll paused for"))
+        self.assertFalse(self.have_text_in_log("Poll resumed for"))
+
+        os.unlink(config.name)
 
     def test_vendor_strings(self):
         '''manufacturer/model_name/serial_number with valid and invalid strings'''
@@ -704,8 +949,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Model'), 'Fancy BT mouse')
         self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 30)
         self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'PowerSupply'), False)
-        # 5 == mouse
-        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), 5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), UP_DEVICE_KIND_MOUSE)
         self.assertEqual(self.get_dbus_property('OnBattery'), False)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
         self.stop_daemon()
@@ -763,25 +1007,195 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(mb1_up, 'Model'), 'Fancy BT mouse')
         self.assertEqual(self.get_dbus_dev_property(mb1_up, 'Percentage'), 30)
         self.assertEqual(self.get_dbus_dev_property(mb1_up, 'PowerSupply'), False)
+        self.stop_daemon()
 
-    def test_bluetooth_hid_mouse(self):
-        '''bluetooth HID mouse battery'''
+    def test_hidpp_mouse(self):
+        '''HID++ mouse battery'''
 
-        self.testbed.add_device('hid',
-                                'usb1/bluetooth/hci0/hci0:01',
-                                None,
-                                [], [])
+        dev = self.testbed.add_device('hid',
+                                      '/devices/pci0000:00/0000:00:14.0/usb3/3-10/3-10:1.2/0003:046D:C52B.0009/0003:046D:4101.000A',
+                                      None,
+                                      [], [])
 
+        parent = dev
         self.testbed.add_device(
             'input',
-            'usb1/bluetooth/hci0/hci0:01/input/input2/mouse3',
-            None,
+            '/devices/pci0000:00/0000:00:14.0/usb3/3-10/3-10:1.2/0003:046D:C52B.0009/0003:046D:4101.000A/input/input22',
+            parent,
             [], ['DEVNAME', 'input/mouse3', 'ID_INPUT_MOUSE', '1'])
 
         self.testbed.add_device(
             'power_supply',
-            'usb1/bluetooth/hci0/hci0:01/1/power_supply/hid-00:11:22:33:44:55-battery',
+            '/devices/pci0000:00/0000:00:14.0/usb3/3-10/3-10:1.2/0003:046D:C52B.0009/0003:046D:4101.000A/power_supply/hidpp_battery_3',
+            parent,
+            ['type', 'Battery',
+             'scope', 'Device',
+             'present', '1',
+             'online', '1',
+             'status', 'Discharging',
+             'capacity', '30',
+             'serial_number', '123456',
+             'model_name', 'Fancy Logitech mouse'],
+            [])
+
+        self.start_daemon()
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+        mousebat0_up = devs[0]
+
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Model'), 'Fancy Logitech mouse')
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 30)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'PowerSupply'), False)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), UP_DEVICE_KIND_MOUSE)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Serial'), '123456')
+        self.assertEqual(self.get_dbus_property('OnBattery'), False)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+        self.stop_daemon()
+
+    def test_usb_joypad(self):
+        '''DualShock 4 joypad connected via USB'''
+
+        dev = self.testbed.add_device('usb',
+                                      '/devices/pci0000:00/0000:00:14.0/usb3/3-9',
+                                      None,
+                                      [], [])
+
+        parent = dev
+        self.testbed.add_device(
+            'input',
+            '/devices/pci0000:00/0000:00:14.0/usb3/3-9/3-9:1.3/0003:054C:09CC.0007/input/input51',
+            parent,
+            ['name', 'Sony Interactive Entertainment Wireless Controller',
+             'uniq', 'ff:ff:ff:ff:ff:ff'],
+            ['ID_INPUT', '1',
+             'ID_INPUT_JOYSTICK', '1'])
+
+        dev = self.testbed.add_device(
+            'power_supply',
+            '/devices/pci0000:00/0000:00:14.0/usb3/3-9/3-9:1.3/0003:054C:09CC.0007/power_supply/sony_controller_battery_ff:ff:ff:ff:ff:ff',
+            parent,
+            ['type', 'Battery',
+             'scope', 'Device',
+             'present', '1',
+             'status', 'Charging',
+             'capacity', '20',],
+            [])
+
+        self.start_daemon()
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+        joypadbat0_up = devs[0]
+
+        self.assertEqual(self.get_dbus_dev_property(joypadbat0_up, 'Model'), 'Sony Interactive Entertainment Wireless Controller')
+        self.assertEqual(self.get_dbus_dev_property(joypadbat0_up, 'Serial'), 'ff:ff:ff:ff:ff:ff')
+        self.assertEqual(self.get_dbus_dev_property(joypadbat0_up, 'PowerSupply'), False)
+        # 12 == gaming input
+        self.assertEqual(self.get_dbus_dev_property(joypadbat0_up, 'Type'), 12)
+        self.assertEqual(self.get_dbus_property('OnBattery'), False)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+
+    def test_hidpp_touchpad(self):
+        '''HID++ touchpad battery with 5 capacity levels'''
+
+        dev = self.testbed.add_device('hid',
+                                      '/devices/pci0000:00/0000:00:14.0/usb3/3-10/3-10:1.2/0003:046D:C52B.0009/0003:046D:4101.000A',
+                                      None,
+                                      [], [])
+
+        parent = dev
+        self.testbed.add_device(
+            'input',
+            '/devices/pci0000:00/0000:00:14.0/usb3/3-10/3-10:1.2/0003:046D:C52B.0009/0003:046D:4101.000A/input/input22',
+            parent,
+            [], ['DEVNAME', 'input/mouse3', 'ID_INPUT_TOUCHPAD', '1'])
+
+        dev = self.testbed.add_device(
+            'power_supply',
+            '/devices/pci0000:00/0000:00:14.0/usb3/3-10/3-10:1.2/0003:046D:C52B.0009/0003:046D:4101.000A/power_supply/hidpp_battery_3',
+            parent,
+            ['type', 'Battery',
+             'scope', 'Device',
+             'present', '1',
+             'online', '1',
+             'status', 'Discharging',
+             'capacity_level', 'Full\n',
+             'serial_number', '123456',
+             'model_name', 'Logitech T650'],
+            [])
+
+        self.start_daemon()
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+        mousebat0_up = devs[0]
+
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Model'), 'Logitech T650')
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'PowerSupply'), False)
+        # 5 == mouse
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), 5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Serial'), '123456')
+        self.assertEqual(self.get_dbus_property('OnBattery'), False)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+
+        # Now test all the levels
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 100)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'BatteryLevel'), UP_DEVICE_LEVEL_FULL)
+
+        self.testbed.set_attribute(dev, 'capacity_level', 'Critical\n')
+        self.testbed.uevent(dev, 'change')
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'BatteryLevel'), UP_DEVICE_LEVEL_CRITICAL)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'WarningLevel'), UP_DEVICE_LEVEL_CRITICAL)
+
+        self.testbed.set_attribute(dev, 'capacity_level', 'Low\n')
+        self.testbed.uevent(dev, 'change')
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 10)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'BatteryLevel'), UP_DEVICE_LEVEL_LOW)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'WarningLevel'), UP_DEVICE_LEVEL_LOW)
+
+        self.testbed.set_attribute(dev, 'capacity_level', 'High\n')
+        self.testbed.uevent(dev, 'change')
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 70)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'BatteryLevel'), UP_DEVICE_LEVEL_HIGH)
+
+        self.testbed.set_attribute(dev, 'capacity_level', 'Normal\n')
+        self.testbed.uevent(dev, 'change')
+        time.sleep(0.5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 55)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'BatteryLevel'), UP_DEVICE_LEVEL_NORMAL)
+
+        self.stop_daemon()
+
+    def test_bluetooth_hid_mouse(self):
+        '''bluetooth HID mouse battery'''
+
+        dev = self.testbed.add_device(
+            'bluetooth',
+            '/devices/pci0000:00/0000:00:14.0/usb2/2-7/2-7:1.0/bluetooth/hci0',
             None,
+            [], [])
+
+        parent = dev
+        dev = self.testbed.add_device(
+            'bluetooth',
+            'hci0:256',
+            parent,
+            [], ['DEVTYPE', 'link'])
+
+        parent = dev
+        dev = self.testbed.add_device(
+            'hid',
+            '0005:046D:B00D.0002',
+            parent,
+            [], ['HID_NAME', 'Fancy BT Mouse'])
+
+        parent = dev
+        self.testbed.add_device(
+            'power_supply',
+            'power_supply/hid-00:1f:20:96:33:47-battery',
+            parent,
             ['type', 'Battery',
              'scope', 'Device',
              'present', '1',
@@ -791,6 +1205,19 @@ class Tests(unittest.TestCase):
              'model_name', 'Fancy BT mouse'],
             [])
 
+        dev = self.testbed.add_device(
+            'input',
+            'input/input22',
+            parent,
+            [], ['ID_INPUT_MOUSE', '1'])
+
+        parent = dev
+        self.testbed.add_device(
+            'input',
+            'mouse1',
+            parent,
+            [], ['ID_INPUT_MOUSE', '1'])
+
         self.start_daemon()
         devs = self.proxy.EnumerateDevices()
         self.assertEqual(len(devs), 1)
@@ -799,8 +1226,87 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Model'), 'Fancy BT mouse')
         self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 30)
         self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'PowerSupply'), False)
-        # 5 == mouse
-        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), 5)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), UP_DEVICE_KIND_MOUSE)
+        self.assertEqual(self.get_dbus_property('OnBattery'), False)
+        self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+        self.stop_daemon()
+
+    def test_virtual_unparented_device(self):
+        '''Unparented virtual input device'''
+
+        dev = self.testbed.add_device(
+            'input',
+            'virtual/input/input18',
+            None,
+            [], [])
+
+        acpi = self.testbed.add_device('acpi', 'PNP0C0A:00', None, [], [])
+        bat0 = self.testbed.add_device('power_supply', 'BAT0', acpi,
+                                       ['type', 'Battery',
+                                        'present', '1',
+                                        'status', 'Discharging',
+                                        'energy_full', '60000000',
+                                        'energy_full_design', '80000000',
+                                        'energy_now', '48000000',
+                                        'voltage_now', '12000000'], [])
+
+        # Generated a critical in older versions of upower
+        self.start_daemon()
+        devs = self.proxy.EnumerateDevices()
+        self.stop_daemon()
+
+    def test_bluetooth_hid_mouse_no_legacy_subdevice(self):
+        '''bluetooth HID mouse battery'''
+
+        dev = self.testbed.add_device(
+            'bluetooth',
+            '/devices/pci0000:00/0000:00:14.0/usb2/2-7/2-7:1.0/bluetooth/hci0',
+            None,
+            [], [])
+
+        parent = dev
+        dev = self.testbed.add_device(
+            'bluetooth',
+            'hci0:256',
+            parent,
+            [], ['DEVTYPE', 'link'])
+
+        parent = dev
+        dev = self.testbed.add_device(
+            'hid',
+            '0005:046D:B00D.0002',
+            parent,
+            [], ['HID_NAME', 'Fancy BT Mouse'])
+
+        parent = dev
+        self.testbed.add_device(
+            'power_supply',
+            'power_supply/hid-00:1f:20:96:33:47-battery',
+            parent,
+            ['type', 'Battery',
+             'scope', 'Device',
+             'present', '1',
+             'online', '1',
+             'status', 'Discharging',
+             'capacity', '30',
+             'model_name', 'Fancy BT mouse'],
+            [])
+
+        self.testbed.add_device(
+            'input',
+            'input/input22',
+            parent,
+            [], ['ID_INPUT_MOUSE', '1'])
+
+        self.start_daemon()
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+        mousebat0_up = devs[0]
+
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Model'), 'Fancy BT mouse')
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Percentage'), 30)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'PowerSupply'), False)
+        self.assertEqual(self.get_dbus_dev_property(mousebat0_up, 'Type'), UP_DEVICE_KIND_MOUSE)
         self.assertEqual(self.get_dbus_property('OnBattery'), False)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
         self.stop_daemon()
@@ -808,21 +1314,22 @@ class Tests(unittest.TestCase):
     def test_bluetooth_keyboard(self):
         '''bluetooth keyboard battery'''
 
-        self.testbed.add_device('bluetooth',
-                                'usb2/bluetooth/hci0/hci0:1',
-                                None,
-                                [], [])
+        dev = self.testbed.add_device('bluetooth',
+                                      'usb2/bluetooth/hci0/hci0:1',
+                                      None,
+                                      [], [])
 
+        parent = dev
         self.testbed.add_device(
             'input',
-            'usb2/bluetooth/hci0/hci0:1/input3/event4',
-            None,
+            'input3/event4',
+            parent,
             [], ['DEVNAME', 'input/event4', 'ID_INPUT_KEYBOARD', '1'])
 
         self.testbed.add_device(
             'power_supply',
-            'usb2/bluetooth/hci0/hci0:1/power_supply/hid-00:22:33:44:55:66-battery',
-            None,
+            'power_supply/hid-00:22:33:44:55:66-battery',
+            parent,
             ['type', 'Battery',
              'scope', 'Device',
              'present', '1',
@@ -840,10 +1347,61 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.get_dbus_dev_property(kbdbat0_up, 'Model'), 'Monster Typist')
         self.assertEqual(self.get_dbus_dev_property(kbdbat0_up, 'Percentage'), 40)
         self.assertEqual(self.get_dbus_dev_property(kbdbat0_up, 'PowerSupply'), False)
-        # 6 == keyboard
-        self.assertEqual(self.get_dbus_dev_property(kbdbat0_up, 'Type'), 6)
+        self.assertEqual(self.get_dbus_dev_property(kbdbat0_up, 'Type'), UP_DEVICE_KIND_KEYBOARD)
         self.assertEqual(self.get_dbus_property('OnBattery'), False)
         self.assertEqual(self.get_dbus_display_property('WarningLevel'), UP_DEVICE_LEVEL_NONE)
+        self.stop_daemon()
+
+    def test_bluetooth_le_mouse(self):
+        '''Bluetooth LE mouse'''
+
+        self.start_bluez()
+
+        # Add an adapter to both bluez and udev
+        adapter_name = 'hci0'
+        path = self.bluez_obj.AddAdapter(adapter_name, 'my-computer')
+        self.assertEqual(path, '/org/bluez/' + adapter_name)
+
+        dev = self.testbed.add_device('bluetooth',
+                                      'usb2/bluetooth/hci0/hci0:1',
+                                      None,
+                                      [], [])
+
+        # Add a device to both bluez and udev
+        address = '11:22:33:44:55:66'
+        alias = 'Arc Touch Mouse SE'
+
+        path = self.bluez_obj.AddDevice(adapter_name, address, alias)
+
+        device = self.dbus_con.get_object('org.bluez', path)
+        device.AddProperties(DEVICE_IFACE, { 'Appearance': dbus.UInt16(0x03c2, variant_level=1) })
+
+        properties = {
+            'Percentage': dbus.Byte(99, variant_level=1),
+        }
+        device.AddProperties(BATTERY_IFACE, properties)
+
+        parent = dev
+        self.testbed.add_device(
+            'input',
+            'input3/event4',
+            parent,
+            [], ['DEVNAME', 'input/event4', 'ID_INPUT_MOUSE', '1'])
+
+        self.start_daemon()
+
+        # process = subprocess.Popen(['gdbus', 'introspect', '--system', '--dest', 'org.bluez', '--object-path', '/org/bluez/hci0/dev_11_22_33_44_55_66'])
+
+        # Wait for UPower to process the new device
+        time.sleep(0.5)
+        devs = self.proxy.EnumerateDevices()
+        self.assertEqual(len(devs), 1)
+        mouse_bat0_up = devs[0]
+
+        self.assertEqual(self.get_dbus_dev_property(mouse_bat0_up, 'Model'), 'Arc Touch Mouse SE')
+        self.assertEqual(self.get_dbus_dev_property(mouse_bat0_up, 'Percentage'), 99)
+        self.assertEqual(self.get_dbus_dev_property(mouse_bat0_up, 'PowerSupply'), False)
+        self.assertEqual(self.get_dbus_dev_property(mouse_bat0_up, 'Type'), UP_DEVICE_KIND_MOUSE)
         self.stop_daemon()
 
     #
@@ -853,14 +1411,15 @@ class Tests(unittest.TestCase):
     def test_lib_daemon_properties(self):
         '''library GI: daemon properties'''
 
+        self.start_logind(parameters={'CanHybridSleep': 'yes'})
         self.start_daemon()
         client = UPowerGlib.Client.new()
         self.assertRegex(client.get_daemon_version(), '^[0-9.]+$')
         self.assertIn(client.get_lid_is_present(), [False, True])
         self.assertIn(client.get_lid_is_closed(), [False, True])
         self.assertEqual(client.get_on_battery(), False)
-        # FIXME: When we have a fake logind
-        # self.assertEqual(client.get_critical_action(), 'PowerOff')
+        self.assertEqual(client.get_critical_action(), 'HybridSleep')
+        self.stop_daemon()
 
     #
     # Helper methods

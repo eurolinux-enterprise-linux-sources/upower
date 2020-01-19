@@ -3,12 +3,12 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>org.freedesktop.UPower: UPower Reference Manual</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
+<meta name="generator" content="DocBook XSL Stylesheets Vsnapshot">
 <link rel="home" href="index.html" title="UPower Reference Manual">
 <link rel="up" href="ref-dbus.html" title="D-Bus API Reference">
 <link rel="prev" href="ref-dbus.html" title="D-Bus API Reference">
 <link rel="next" href="Device.html" title="org.freedesktop.UPower.Device">
-<meta name="generator" content="GTK-Doc V1.24 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.26 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -36,15 +36,15 @@
 </tr></table></div>
 <div class="refsynopsisdiv">
 <h2>Methods</h2>
-<pre class="synopsis"><a class="link" href="UPower.html#UPower.EnumerateDevices">EnumerateDevices</a>(out'ao'devices)
-<a class="link" href="UPower.html#UPower.GetDisplayDevice">GetDisplayDevice</a>(out'o'device)
-<a class="link" href="UPower.html#UPower.GetCriticalAction">GetCriticalAction</a>(out's'action)
+<pre class="synopsis"><a class="link" href="UPower.html#UPower.EnumerateDevices">EnumerateDevices</a>  (out 'ao' devices)
+<a class="link" href="UPower.html#UPower.GetDisplayDevice">GetDisplayDevice</a>  (out 'o'  device)
+<a class="link" href="UPower.html#UPower.GetCriticalAction">GetCriticalAction</a> (out 's'  action)
 </pre>
 </div>
 <div class="refsect1">
 <a name="id-1.2.3.4"></a><h2>Signals</h2>
-<pre class="synopsis"><a class="link" href="UPower.html#UPower::DeviceAdded">DeviceAdded</a>('o'device)
-<a class="link" href="UPower.html#UPower::DeviceRemoved">DeviceRemoved</a>('o'device)
+<pre class="synopsis"><a class="link" href="UPower.html#UPower::DeviceAdded">DeviceAdded</a>   ('o' device)
+<a class="link" href="UPower.html#UPower::DeviceRemoved">DeviceRemoved</a> ('o' device)
 </pre>
 </div>
 <div class="refsect1">
@@ -57,10 +57,10 @@
 </div>
 <div class="refsect1">
 <a name="id-1.2.3.6"></a><h2>Properties</h2>
-<pre class="synopsis"><a class="link" href="UPower.html#UPower:DaemonVersion">'DaemonVersion'</a>read's'
-<a class="link" href="UPower.html#UPower:OnBattery">'OnBattery'</a>read'b'
-<a class="link" href="UPower.html#UPower:LidIsClosed">'LidIsClosed'</a>read'b'
-<a class="link" href="UPower.html#UPower:LidIsPresent">'LidIsPresent'</a>read'b'
+<pre class="synopsis"><a class="link" href="UPower.html#UPower:DaemonVersion">'DaemonVersion'</a> read      's'
+<a class="link" href="UPower.html#UPower:OnBattery">'OnBattery'</a>     read      'b'
+<a class="link" href="UPower.html#UPower:LidIsClosed">'LidIsClosed'</a>   read      'b'
+<a class="link" href="UPower.html#UPower:LidIsPresent">'LidIsPresent'</a>  read      'b'
 </pre>
 </div>
 <div class="refsect1">
@@ -97,9 +97,9 @@
 11</pre></td>
         <td class="listing_code"><pre class="programlisting"><span class="normal">$ dbus</span><span class="symbol">-</span><span class="normal">send </span><span class="symbol">--</span><span class="normal">print</span><span class="symbol">-</span><span class="normal">reply </span><span class="symbol">\</span>
 <span class="normal">            </span><span class="symbol">--</span><span class="normal">system </span><span class="symbol">\</span>
-<span class="normal">            </span><span class="symbol">--</span><span class="normal">dest</span><span class="symbol">=</span><span class="normal">org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal"><a href="UPower.html">UPower</a> </span><span class="symbol">\</span>
-<span class="normal">            </span><span class="symbol">/</span><span class="normal">org</span><span class="symbol">/</span><span class="normal">freedesktop</span><span class="symbol">/</span><span class="normal"><a href="UPower.html">UPower</a> </span><span class="symbol">\</span>
-<span class="normal">            org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal"><a href="UPower.html">UPower</a></span><span class="symbol">.</span><span class="normal">EnumerateDevices</span>
+<span class="normal">            </span><span class="symbol">--</span><span class="normal">dest</span><span class="symbol">=</span><span class="normal">org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal">UPower </span><span class="symbol">\</span>
+<span class="normal">            </span><span class="symbol">/</span><span class="normal">org</span><span class="symbol">/</span><span class="normal">freedesktop</span><span class="symbol">/</span><span class="normal">UPower </span><span class="symbol">\</span>
+<span class="normal">            org</span><span class="symbol">.</span><span class="normal">freedesktop</span><span class="symbol">.</span><span class="normal">UPower</span><span class="symbol">.</span><span class="normal">EnumerateDevices</span>
 
 <span class="normal">method </span><span class="usertype">return</span><span class="normal"> sender</span><span class="symbol">=:</span><span class="number">1.386</span><span class="normal"> </span><span class="symbol">-&gt;</span><span class="normal"> dest</span><span class="symbol">=:</span><span class="number">1.451</span><span class="normal"> reply_serial</span><span class="symbol">=</span><span class="number">2</span>
 <span class="normal">   array </span><span class="symbol">[</span>
@@ -122,7 +122,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.8.2"></a><h3>
 <a name="UPower.EnumerateDevices"></a>EnumerateDevices ()</h3>
-<pre class="programlisting">EnumerateDevices (out'ao'devices)</pre>
+<pre class="programlisting">EnumerateDevices (out 'ao' devices)</pre>
 </div>
 <p>
             Enumerate all power objects on the system.
@@ -141,7 +141,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.8.5"></a><h3>
 <a name="UPower.GetDisplayDevice"></a>GetDisplayDevice ()</h3>
-<pre class="programlisting">GetDisplayDevice (out'o'device)</pre>
+<pre class="programlisting">GetDisplayDevice (out 'o' device)</pre>
 </div>
 <p>
             Get the object to the "display device", a composite device that represents the
@@ -191,7 +191,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.8.8"></a><h3>
 <a name="UPower.GetCriticalAction"></a>GetCriticalAction ()</h3>
-<pre class="programlisting">GetCriticalAction (out's'action)</pre>
+<pre class="programlisting">GetCriticalAction (out 's' action)</pre>
 </div>
 <p>
             When the system's power supply is critical (critically low batteries or UPS),
@@ -220,7 +220,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.9.2"></a><h3>
 <a name="UPower::DeviceAdded"></a>The DeviceAdded signal</h3>
-<pre class="programlisting">DeviceAdded ('o'device)</pre>
+<pre class="programlisting">DeviceAdded ('o' device)</pre>
 </div>
 <p>
             Emitted when a device is added.
@@ -239,7 +239,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.9.5"></a><h3>
 <a name="UPower::DeviceRemoved"></a>The DeviceRemoved signal</h3>
-<pre class="programlisting">DeviceRemoved ('o'device)</pre>
+<pre class="programlisting">DeviceRemoved ('o' device)</pre>
 </div>
 <p>
             Emitted when a device is removed.
@@ -260,7 +260,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.10.2"></a><h3>
 <a name="UPower:DaemonVersion"></a>The "DaemonVersion" property</h3>
-<pre class="programlisting">'DaemonVersion'read's'
+<pre class="programlisting">'DaemonVersion'  read      's'
 </pre>
 </div>
 <p>
@@ -277,7 +277,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.10.5"></a><h3>
 <a name="UPower:OnBattery"></a>The "OnBattery" property</h3>
-<pre class="programlisting">'OnBattery'read'b'
+<pre class="programlisting">'OnBattery'  read      'b'
 </pre>
 </div>
 <p>
@@ -295,7 +295,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.10.8"></a><h3>
 <a name="UPower:LidIsClosed"></a>The "LidIsClosed" property</h3>
-<pre class="programlisting">'LidIsClosed'read'b'
+<pre class="programlisting">'LidIsClosed'  read      'b'
 </pre>
 </div>
 <p>
@@ -312,7 +312,7 @@
 <div class="refsect2">
 <a name="id-1.2.3.10.11"></a><h3>
 <a name="UPower:LidIsPresent"></a>The "LidIsPresent" property</h3>
-<pre class="programlisting">'LidIsPresent'read'b'
+<pre class="programlisting">'LidIsPresent'  read      'b'
 </pre>
 </div>
 <p>
@@ -328,6 +328,6 @@
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.24</div>
+<hr>Generated by GTK-Doc V1.26</div>
 </body>
 </html>

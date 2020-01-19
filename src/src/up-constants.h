@@ -1,6 +1,8 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
  *
- * Copyright (C) 2009 Richard Hughes <richard@hughsie.com>
+ * Copyright (C) 2017 Bastien Nocera <hadess@hadess.net>
+ *
+ * Licensed under the GNU General Public License Version 2
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,25 +16,26 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <glib.h>
-#include "up-acpi-native.h"
+#ifndef __UP_CONSTANTS_H
+#define __UP_CONSTANTS_H
 
-#include "up-native.h"
+#include <glib-object.h>
 
-/**
- * up_native_get_native_path:
- * @object: the native tracking object
- *
- * This converts a GObject used as the device data into a native path.
- *
- * Return value: The native path for the device which is unique, e.g. "/sys/class/power/BAT1"
- **/
-const gchar *
-up_native_get_native_path (GObject *object)
-{
-	return up_acpi_native_get_path (UP_ACPI_NATIVE (object));
-}
+G_BEGIN_DECLS
+
+#define UP_DAEMON_UNKNOWN_TIMEOUT			   1 /* second */
+#define UP_DAEMON_UNKNOWN_RETRIES			   5
+#define UP_DAEMON_SHORT_TIMEOUT				  30 /* seconds */
+#define UP_DAEMON_LONG_TIMEOUT				 120 /* seconds */
+
+#define UP_DAEMON_EPSILON				0.01 /* I can't believe it's not zero */
+
+#define SECONDS_PER_HOUR				3600 /* seconds in an hour */
+#define SECONDS_PER_HOUR_F				3600.0f
+
+G_END_DECLS
+
+#endif /* __UP_CONSTANTS_H */

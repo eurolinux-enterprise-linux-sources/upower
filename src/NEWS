@@ -1,3 +1,50 @@
+Version 0.99.7
+~~~~~~~~~~~~~~
+Released: 2017-11-28
+
+New Features:
+ - Add support for Bluetooth LE device batteries (Bastien Nocera)
+ - Allow to be replaced via --replace,-r (Christian Kellner)
+
+Bugfixes:
+ - Fix critical action after resume from hibernate (Miroslav Sustek)
+ - Fix compilation with libimobiledevice git (Bastien Nocera)
+
+Version 0.99.6
+~~~~~~~~~~~~~~
+Released: 2017-09-11
+
+New Features:
+ - Add UP_DEVICE_KIND_GAMING_INPUT for gaming devices (Bastien Nocera)
+ - Detect joysticks as gaming input devices (Bastien Nocera)
+
+Bugfixes:
+ - Correctly close inhibitor FD (Benjamin Berg)
+ - Fix crash when '@' is present in the device name (oleid, Bastien Nocera)
+ - Fix lid detection on FreeBSD (Alberto Villa)
+ - Grab the model name from device if unavailable from battery (Bastien Nocera)
+
+Version 0.99.5
+~~~~~~~~~~~~~~
+Released: 2017-07-24
+
+New Features:
+ - Add a more complete self test for HID++ devices (Bastien Nocera)
+ - Add BatteryLevel property for devices with a finite number of power levels (Bastien Nocera)
+ - Add support for pausing and resuming of the daemon poll (Christian Kellner, Bastien Nocera)
+ - Get a serial number for device batteries (Bastien Nocera)
+ - Refresh devices after waking up from sleep (Christian Kellner)
+
+Bugfixes:
+ - Add proper error and cancellable handling to UpClient constructor (Martin Pitt)
+ - Do not spin in a loop when /proc/timer_stats cannot be written (Richard Hughes)
+ - Exit early from up-tool when connecting to upower fails (Martin Pitt)
+ - Expand the integration-tests to run in more environments (Bastien Nocera, Christian Kellner)
+ - Fix reading and writing the keyboard brightness level (Hans de Goede, Marco Trevisan)
+ - Fix -Wformat-y2k compilation errors (Bastien Nocera)
+ - Lower initial power usage when iDevice isn't accessible (Bastien Nocera)
+ - Simplify string checks in upower-glib (Bastien Nocera)
+
 Version 0.99.4
 ~~~~~~~~~~~~~~
 Released: 2016-02-16

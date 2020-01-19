@@ -43,11 +43,53 @@ static void     up_kbd_backlight_finalize   (GObject	*object);
 struct UpKbdBacklightPrivate
 {
 	gint			 fd;
-	gint			 brightness;
+	gint			 fd_hw_changed;
+	GIOChannel		*channel_hw_changed;
 	gint			 max_brightness;
 };
 
 G_DEFINE_TYPE (UpKbdBacklight, up_kbd_backlight, UP_TYPE_EXPORTED_KBD_BACKLIGHT_SKELETON)
+
+/**
+ * up_kbd_backlight_emit_change:
+ **/
+static void
+up_kbd_backlight_emit_change(UpKbdBacklight *kbd_backlight, int value, const char *source)
+{
+	up_exported_kbd_backlight_emit_brightness_changed (UP_EXPORTED_KBD_BACKLIGHT (kbd_backlight), value);
+	up_exported_kbd_backlight_emit_brightness_changed_with_source (UP_EXPORTED_KBD_BACKLIGHT (kbd_backlight), value, source);
+}
+
+/**
+ * up_kbd_backlight_brightness_read:
+ **/
+static gint
+up_kbd_backlight_brightness_read (UpKbdBacklight *kbd_backlight, int fd)
+{
+	gchar buf[16];
+	gchar *end = NULL;
+	ssize_t len;
+	gint64 brightness = -1;
+
+	g_return_val_if_fail (fd >= 0, brightness);
+
+	lseek (fd, 0, SEEK_SET);
+	len = read (fd, buf, G_N_ELEMENTS (buf) - 1);
+
+	if (len > 0) {
+		buf[len] = '\0';
+		brightness = g_ascii_strtoll (buf, &end, 10);
+
+		if (brightness < 0 ||
+		    brightness > kbd_backlight->priv->max_brightness ||
+		    end == buf) {
+			brightness = -1;
+			g_warning ("failed to convert brightness: %s", buf);
+		}
+	}
+
+	return brightness;
+}
 
 /**
  * up_kbd_backlight_brightness_write:
@@ -84,9 +126,7 @@ up_kbd_backlight_brightness_write (UpKbdBacklight *kbd_backlight, gint value)
 	}
 
 	/* emit signal */
-	kbd_backlight->priv->brightness = value;
-	up_exported_kbd_backlight_emit_brightness_changed (UP_EXPORTED_KBD_BACKLIGHT (kbd_backlight),
-							   kbd_backlight->priv->brightness);
+	up_kbd_backlight_emit_change (kbd_backlight, value, "external");
 
 out:
 	g_free (text);
@@ -103,8 +143,19 @@ up_kbd_backlight_get_brightness (UpExportedKbdBacklight *skeleton,
 				 GDBusMethodInvocation *invocation,
 				 UpKbdBacklight *kbd_backlight)
 {
-	up_exported_kbd_backlight_complete_get_brightness (skeleton, invocation,
-							   kbd_backlight->priv->brightness);
+	gint brightness;
+
+	brightness = up_kbd_backlight_brightness_read (kbd_backlight, kbd_backlight->priv->fd);
+
+	if (brightness >= 0) {
+		up_exported_kbd_backlight_complete_get_brightness (skeleton, invocation,
+								   brightness);
+	} else {
+		g_dbus_method_invocation_return_error (invocation,
+						       UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL,
+						       "error reading brightness");
+	}
+
 	return TRUE;
 }
 
@@ -161,6 +212,24 @@ up_kbd_backlight_class_init (UpKbdBacklightClass *klass)
 }
 
 /**
+ * up_kbd_backlight_event_io:
+ **/
+static gboolean
+up_kbd_backlight_event_io (GIOChannel *channel, GIOCondition condition, gpointer data)
+{
+	UpKbdBacklight *kbd_backlight = (UpKbdBacklight*) data;
+	gint brightness;
+
+	if (!(condition & G_IO_PRI))
+		return FALSE;
+
+	brightness = up_kbd_backlight_brightness_read (kbd_backlight, kbd_backlight->priv->fd_hw_changed);
+	up_kbd_backlight_emit_change (kbd_backlight, brightness, "internal");
+
+	return TRUE;
+}
+
+/**
  * up_kbd_backlight_find:
  **/
 static gboolean
@@ -174,6 +243,7 @@ up_kbd_backlight_find (UpKbdBacklight *kbd_backlight)
 	gchar *dir_path = NULL;
 	gchar *path_max = NULL;
 	gchar *path_now = NULL;
+	gchar *path_hw_changed = NULL;
 	gchar *buf_max = NULL;
 	gchar *buf_now = NULL;
 	GError *error = NULL;
@@ -216,24 +286,21 @@ up_kbd_backlight_find (UpKbdBacklight *kbd_backlight)
 		goto out;
 	}
 
-	/* read brightness */
+	/* open the brightness file for read and write operations */
 	path_now = g_build_filename (dir_path, "brightness", NULL);
-	ret = g_file_get_contents (path_now, &buf_now, NULL, &error);
-	if (!ret) {
-		g_warning ("failed to get brightness: %s", error->message);
-		g_error_free (error);
-		goto out;
-	}
-	kbd_backlight->priv->brightness = g_ascii_strtoull (buf_now, &end, 10);
-	if (kbd_backlight->priv->brightness == 0 && end == buf_now) {
-		g_warning ("failed to convert brightness: %s", buf_now);
-		goto out;
-	}
-
-	/* open the file for writing */
 	kbd_backlight->priv->fd = open (path_now, O_RDWR);
-	if (kbd_backlight->priv->fd < 0)
+
+	/* read brightness and check if it has an acceptable value */
+	if (up_kbd_backlight_brightness_read (kbd_backlight, kbd_backlight->priv->fd) < 0)
 		goto out;
+
+	path_hw_changed = g_build_filename (dir_path, "brightness_hw_changed", NULL);
+	kbd_backlight->priv->fd_hw_changed = open (path_hw_changed, O_RDONLY);
+	if (kbd_backlight->priv->fd_hw_changed >= 0) {
+		kbd_backlight->priv->channel_hw_changed = g_io_channel_unix_new (kbd_backlight->priv->fd_hw_changed);
+		g_io_add_watch (kbd_backlight->priv->channel_hw_changed,
+				G_IO_PRI, up_kbd_backlight_event_io, kbd_backlight);
+	}
 
 	/* success */
 	found = TRUE;
@@ -243,6 +310,7 @@ out:
 	g_free (dir_path);
 	g_free (path_max);
 	g_free (path_now);
+	g_free (path_hw_changed);
 	g_free (buf_max);
 	g_free (buf_now);
 	return found;
@@ -277,6 +345,14 @@ up_kbd_backlight_finalize (GObject *object)
 
 	kbd_backlight = UP_KBD_BACKLIGHT (object);
 	kbd_backlight->priv = UP_KBD_BACKLIGHT_GET_PRIVATE (kbd_backlight);
+
+	if (kbd_backlight->priv->channel_hw_changed) {
+		g_io_channel_shutdown (kbd_backlight->priv->channel_hw_changed, FALSE, NULL);
+		g_io_channel_unref (kbd_backlight->priv->channel_hw_changed);
+	}
+
+	if (kbd_backlight->priv->fd_hw_changed >= 0)
+		close (kbd_backlight->priv->fd_hw_changed);
 
 	/* close file */
 	if (kbd_backlight->priv->fd >= 0)

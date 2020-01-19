@@ -68,13 +68,99 @@ up_device_idevice_poll_cb (UpDeviceIdevice *idevice)
 	return TRUE;
 }
 
+static const char *
+lockdownd_error_to_string (lockdownd_error_t lerr)
+{
+	switch (lerr) {
+	case LOCKDOWN_E_SUCCESS:
+		return "LOCKDOWN_E_SUCCESS";
+	case LOCKDOWN_E_INVALID_ARG:
+		return "LOCKDOWN_E_INVALID_ARG";
+	case LOCKDOWN_E_INVALID_CONF:
+		return "LOCKDOWN_E_INVALID_CONF";
+	case LOCKDOWN_E_PLIST_ERROR:
+		return "LOCKDOWN_E_PLIST_ERROR";
+	case LOCKDOWN_E_PAIRING_FAILED:
+		return "LOCKDOWN_E_PAIRING_FAILED";
+	case LOCKDOWN_E_SSL_ERROR:
+		return "LOCKDOWN_E_SSL_ERROR";
+	case LOCKDOWN_E_DICT_ERROR:
+		return "LOCKDOWN_E_DICT_ERROR";
+	case -7:
+		/* Either LOCKDOWN_E_NOT_ENOUGH_DATA or
+		 * LOCKDOWN_E_RECEIVE_TIMEOUT depending on version */
+		return "LOCKDOWN_E_RECEIVE_TIMEOUT";
+	case LOCKDOWN_E_MUX_ERROR:
+		return "LOCKDOWN_E_MUX_ERROR";
+	case LOCKDOWN_E_NO_RUNNING_SESSION:
+		return "LOCKDOWN_E_NO_RUNNING_SESSION";
+	case LOCKDOWN_E_INVALID_RESPONSE:
+		return "LOCKDOWN_E_INVALID_RESPONSE";
+	case LOCKDOWN_E_MISSING_KEY:
+		return "LOCKDOWN_E_MISSING_KEY";
+	case LOCKDOWN_E_MISSING_VALUE:
+		return "LOCKDOWN_E_MISSING_VALUE";
+	case LOCKDOWN_E_GET_PROHIBITED:
+		return "LOCKDOWN_E_GET_PROHIBITED";
+	case LOCKDOWN_E_SET_PROHIBITED:
+		return "LOCKDOWN_E_SET_PROHIBITED";
+	case LOCKDOWN_E_REMOVE_PROHIBITED:
+		return "LOCKDOWN_E_REMOVE_PROHIBITED";
+	case LOCKDOWN_E_IMMUTABLE_VALUE:
+		return "LOCKDOWN_E_IMMUTABLE_VALUE";
+	case LOCKDOWN_E_PASSWORD_PROTECTED:
+		return "LOCKDOWN_E_PASSWORD_PROTECTED";
+	case LOCKDOWN_E_USER_DENIED_PAIRING:
+		return "LOCKDOWN_E_USER_DENIED_PAIRING";
+	case LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING:
+		return "LOCKDOWN_E_PAIRING_DIALOG_RESPONSE_PENDING";
+	case LOCKDOWN_E_MISSING_HOST_ID:
+		return "LOCKDOWN_E_MISSING_HOST_ID";
+	case LOCKDOWN_E_INVALID_HOST_ID:
+		return "LOCKDOWN_E_INVALID_HOST_ID";
+	case LOCKDOWN_E_SESSION_ACTIVE:
+		return "LOCKDOWN_E_SESSION_ACTIVE";
+	case LOCKDOWN_E_SESSION_INACTIVE:
+		return "LOCKDOWN_E_SESSION_INACTIVE";
+	case LOCKDOWN_E_MISSING_SESSION_ID:
+		return "LOCKDOWN_E_MISSING_SESSION_ID";
+	case LOCKDOWN_E_INVALID_SESSION_ID:
+		return "LOCKDOWN_E_INVALID_SESSION_ID";
+	case LOCKDOWN_E_MISSING_SERVICE:
+		return "LOCKDOWN_E_MISSING_SERVICE";
+	case LOCKDOWN_E_INVALID_SERVICE:
+		return "LOCKDOWN_E_INVALID_SERVICE";
+	case LOCKDOWN_E_SERVICE_LIMIT:
+		return "LOCKDOWN_E_SERVICE_LIMIT";
+	case LOCKDOWN_E_MISSING_PAIR_RECORD:
+		return "LOCKDOWN_E_MISSING_PAIR_RECORD";
+	case LOCKDOWN_E_SAVE_PAIR_RECORD_FAILED:
+		return "LOCKDOWN_E_SAVE_PAIR_RECORD_FAILED";
+	case LOCKDOWN_E_INVALID_PAIR_RECORD:
+		return "LOCKDOWN_E_INVALID_PAIR_RECORD";
+	case LOCKDOWN_E_INVALID_ACTIVATION_RECORD:
+		return "LOCKDOWN_E_INVALID_ACTIVATION_RECORD";
+	case LOCKDOWN_E_MISSING_ACTIVATION_RECORD:
+		return "LOCKDOWN_E_MISSING_ACTIVATION_RECORD";
+	case LOCKDOWN_E_SERVICE_PROHIBITED:
+		return "LOCKDOWN_E_SERVICE_PROHIBITED";
+	case LOCKDOWN_E_ESCROW_LOCKED:
+		return "LOCKDOWN_E_ESCROW_LOCKED";
+	case LOCKDOWN_E_UNKNOWN_ERROR:
+		return "LOCKDOWN_E_UNKNOWN_ERROR";
+	default:
+		return "unknown error";
+	}
+}
+
 static gboolean
-start_poll_cb (UpDeviceIdevice *idevice)
+up_device_idevice_start_poll_cb (UpDeviceIdevice *idevice)
 {
 	UpDevice *device = UP_DEVICE (idevice);
 	idevice_t dev = NULL;
 	lockdownd_client_t client = NULL;
 	char *uuid = NULL;
+	lockdownd_error_t lerr;
 
 	g_object_get (G_OBJECT (idevice), "serial", &uuid, NULL);
 	g_assert (uuid);
@@ -85,8 +171,11 @@ start_poll_cb (UpDeviceIdevice *idevice)
 
 	g_clear_pointer (&uuid, g_free);
 
-	if (LOCKDOWN_E_SUCCESS != lockdownd_client_new_with_handshake (dev, &client, "upower"))
+	if ((lerr = lockdownd_client_new_with_handshake (dev, &client, "upower")) != LOCKDOWN_E_SUCCESS) {
+		g_debug ("Could not start initial lockdownd client: %s (%d)",
+			 lockdownd_error_to_string (lerr), lerr);
 		goto out;
+	}
 
 	/* coldplug */
 	idevice->priv->client = client;
@@ -160,7 +249,10 @@ up_device_idevice_coldplug (UpDevice *device)
 		      "has-history", TRUE,
 		      NULL);
 
-	idevice->priv->start_id = g_timeout_add_seconds (1, (GSourceFunc) start_poll_cb, idevice);
+	idevice->priv->start_id = g_timeout_add_seconds (5, (GSourceFunc) up_device_idevice_start_poll_cb,
+							 idevice);
+	g_source_set_name_by_id (idevice->priv->start_id,
+				 "[upower] up_device_idevice_start_poll_cb (linux)");
 
 	return TRUE;
 }

@@ -90,6 +90,7 @@ enum {
 	PROP_PERCENTAGE,
 	PROP_TEMPERATURE,
 	PROP_WARNING_LEVEL,
+	PROP_BATTERY_LEVEL,
 	PROP_ICON_NAME,
 	PROP_LAST
 };
@@ -273,7 +274,10 @@ up_device_to_text (UpDevice *device)
 	/* get a human readable time */
 	t = (time_t) up_exported_device_get_update_time (priv->proxy_device);
 	time_tm = localtime (&t);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-y2k"
 	strftime (time_buf, sizeof time_buf, "%c", time_tm);
+#pragma GCC diagnostic pop
 
 	string = g_string_new ("");
 	if (!is_display)
@@ -303,7 +307,8 @@ up_device_to_text (UpDevice *device)
 	if ((kind == UP_DEVICE_KIND_PHONE ||
 	     kind == UP_DEVICE_KIND_BATTERY ||
 	     kind == UP_DEVICE_KIND_MOUSE ||
-	     kind == UP_DEVICE_KIND_KEYBOARD) &&
+	     kind == UP_DEVICE_KIND_KEYBOARD ||
+	     kind == UP_DEVICE_KIND_GAMING_INPUT) &&
 	    !is_display)
 		g_string_append_printf (string, "    rechargeable:        %s\n", up_device_bool_to_string (up_exported_device_get_is_rechargeable (priv->proxy_device)));
 	if (kind == UP_DEVICE_KIND_BATTERY ||
@@ -312,6 +317,8 @@ up_device_to_text (UpDevice *device)
 	    kind == UP_DEVICE_KIND_UPS)
 		g_string_append_printf (string, "    state:               %s\n", up_device_state_to_string (up_exported_device_get_state (priv->proxy_device)));
 	g_string_append_printf (string, "    warning-level:       %s\n", up_device_level_to_string (up_exported_device_get_warning_level (priv->proxy_device)));
+	if (up_exported_device_get_battery_level (priv->proxy_device) != UP_DEVICE_LEVEL_NONE)
+		g_string_append_printf (string, "    battery-level:       %s\n", up_device_level_to_string (up_exported_device_get_battery_level (priv->proxy_device)));
 	if (kind == UP_DEVICE_KIND_BATTERY) {
 		g_string_append_printf (string, "    energy:              %g Wh\n", up_exported_device_get_energy (priv->proxy_device));
 		if (!is_display)
@@ -353,7 +360,8 @@ up_device_to_text (UpDevice *device)
 	    kind == UP_DEVICE_KIND_TABLET ||
 	    kind == UP_DEVICE_KIND_COMPUTER ||
 	    kind == UP_DEVICE_KIND_MEDIA_PLAYER ||
-	    kind == UP_DEVICE_KIND_UPS)
+	    kind == UP_DEVICE_KIND_UPS ||
+	    kind == UP_DEVICE_KIND_GAMING_INPUT)
 		g_string_append_printf (string, "    percentage:          %g%%\n", up_exported_device_get_percentage (priv->proxy_device));
 	if (kind == UP_DEVICE_KIND_BATTERY) {
 		if (up_exported_device_get_temperature (priv->proxy_device) > 0)
@@ -662,6 +670,9 @@ up_device_set_property (GObject *object, guint prop_id, const GValue *value, GPa
 	case PROP_WARNING_LEVEL:
 		up_exported_device_set_warning_level (device->priv->proxy_device, g_value_get_uint (value));
 		break;
+	case PROP_BATTERY_LEVEL:
+		up_exported_device_set_battery_level (device->priv->proxy_device, g_value_get_uint (value));
+		break;
 	case PROP_ICON_NAME:
 		up_exported_device_set_icon_name (device->priv->proxy_device, g_value_get_string (value));
 		break;
@@ -772,6 +783,9 @@ up_device_get_property (GObject *object, guint prop_id, GValue *value, GParamSpe
 		break;
 	case PROP_WARNING_LEVEL:
 		g_value_set_uint (value, up_exported_device_get_warning_level (device->priv->proxy_device));
+		break;
+	case PROP_BATTERY_LEVEL:
+		g_value_set_uint (value, up_exported_device_get_battery_level (device->priv->proxy_device));
 		break;
 	case PROP_ICON_NAME:
 		g_value_set_string (value, up_exported_device_get_icon_name (device->priv->proxy_device));
@@ -1133,7 +1147,7 @@ up_device_class_init (UpDeviceClass *klass)
 	/**
 	 * UpDevice:warning-level:
 	 *
-	 * The warning level e.g. %UP_DEVICE_LEVEL_WARNING.
+	 * The warning level e.g. %UP_DEVICE_LEVEL_CRITICAL.
 	 *
 	 * Since: 1.0
 	 **/
@@ -1144,6 +1158,22 @@ up_device_class_init (UpDeviceClass *klass)
 							    UP_DEVICE_LEVEL_UNKNOWN,
 							    UP_DEVICE_LEVEL_LAST,
 							    UP_DEVICE_LEVEL_UNKNOWN,
+							    G_PARAM_READWRITE));
+
+	/**
+	 * UpDevice:battery-level:
+	 *
+	 * The battery level, e.g. %UP_DEVICE_LEVEL_CRITICAL.
+	 *
+	 * Since: 1.0
+	 **/
+	g_object_class_install_property (object_class,
+					 PROP_BATTERY_LEVEL,
+					 g_param_spec_uint ("battery-level",
+							    NULL, NULL,
+							    UP_DEVICE_LEVEL_UNKNOWN,
+							    UP_DEVICE_LEVEL_LAST,
+							    UP_DEVICE_LEVEL_NONE,
 							    G_PARAM_READWRITE));
 
 	/**
