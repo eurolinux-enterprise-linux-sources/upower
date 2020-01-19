@@ -30,7 +30,6 @@
 #include <sys/time.h>
 #include <glib.h>
 #include <glib/gi18n-lib.h>
-#include <locale.h>
 
 #include "up-client.h"
 #include "up-device.h"
@@ -83,7 +82,7 @@ up_tool_device_added_cb (UpClient *client, UpDevice *device, gpointer user_data)
  * up_tool_device_changed_cb:
  **/
 static void
-up_tool_device_changed_cb (UpDevice *device, GParamSpec *pspec, gpointer user_data)
+up_tool_device_changed_cb (UpClient *client, UpDevice *device, gpointer user_data)
 {
 	gchar *timestamp;
 	gchar *text = NULL;
@@ -102,11 +101,11 @@ up_tool_device_changed_cb (UpDevice *device, GParamSpec *pspec, gpointer user_da
  * up_tool_device_removed_cb:
  **/
 static void
-up_tool_device_removed_cb (UpClient *client, const char *object_path, gpointer user_data)
+up_tool_device_removed_cb (UpClient *client, UpDevice *device, gpointer user_data)
 {
 	gchar *timestamp;
 	timestamp = up_tool_get_timestamp ();
-	g_print ("[%s]\tdevice removed:   %s\n", timestamp, object_path);
+	g_print ("[%s]\tdevice removed:   %s\n", timestamp, up_device_get_object_path (device));
 	if (opt_monitor_detail)
 		g_print ("\n");
 	g_free (timestamp);
@@ -119,26 +118,39 @@ static void
 up_client_print (UpClient *client)
 {
 	gchar *daemon_version;
+#ifdef ENABLE_DEPRECATED
+	gboolean can_suspend;
+	gboolean can_hibernate;
+#endif
 	gboolean on_battery;
-	UpDeviceLevel warning_level;
+	gboolean on_low_battery;
 	gboolean lid_is_closed;
 	gboolean lid_is_present;
-	char *action;
+	gboolean is_docked;
 
 	g_object_get (client,
 		      "daemon-version", &daemon_version,
+#ifdef ENABLE_DEPRECATED
+		      "can-suspend", &can_suspend,
+		      "can-hibernate", &can_hibernate,
+#endif
 		      "on-battery", &on_battery,
+		      "on-low_battery", &on_low_battery,
 		      "lid-is-closed", &lid_is_closed,
 		      "lid-is-present", &lid_is_present,
+		      "is-docked", &is_docked,
 		      NULL);
 
 	g_print ("  daemon-version:  %s\n", daemon_version);
+#ifdef ENABLE_DEPRECATED
+	g_print ("  can-suspend:     %s\n", can_suspend ? "yes" : "no");
+	g_print ("  can-hibernate:   %s\n", can_hibernate ? "yes" : "no");
+#endif
 	g_print ("  on-battery:      %s\n", on_battery ? "yes" : "no");
+	g_print ("  on-low-battery:  %s\n", on_low_battery ? "yes" : "no");
 	g_print ("  lid-is-closed:   %s\n", lid_is_closed ? "yes" : "no");
 	g_print ("  lid-is-present:  %s\n", lid_is_present ? "yes" : "no");
-	action = up_client_get_critical_action (client);
-	g_print ("  critical-action: %s\n", action);
-	g_free (action);
+	g_print ("  is-docked:       %s\n", is_docked ? "yes" : "no");
 
 	g_free (daemon_version);
 }
@@ -147,7 +159,7 @@ up_client_print (UpClient *client)
  * up_tool_changed_cb:
  **/
 static void
-up_tool_changed_cb (UpClient *client, GParamSpec *pspec, gpointer user_data)
+up_tool_changed_cb (UpClient *client, gpointer user_data)
 {
 	gchar *timestamp;
 	timestamp = up_tool_get_timestamp ();
@@ -165,22 +177,12 @@ up_tool_changed_cb (UpClient *client, GParamSpec *pspec, gpointer user_data)
 static gboolean
 up_tool_do_monitor (UpClient *client)
 {
-	GPtrArray *devices;
-	GError *error = NULL;
-	guint i;
-
 	g_print ("Monitoring activity from the power daemon. Press Ctrl+C to cancel.\n");
 
 	g_signal_connect (client, "device-added", G_CALLBACK (up_tool_device_added_cb), NULL);
 	g_signal_connect (client, "device-removed", G_CALLBACK (up_tool_device_removed_cb), NULL);
-	g_signal_connect (client, "notify", G_CALLBACK (up_tool_changed_cb), NULL);
-
-	devices = up_client_get_devices (client);
-	for (i=0; i < devices->len; i++) {
-		UpDevice *device;
-		device = g_ptr_array_index (devices, i);
-		g_signal_connect (device, "notify", G_CALLBACK (up_tool_device_changed_cb), NULL);
-	}
+	g_signal_connect (client, "device-changed", G_CALLBACK (up_tool_device_changed_cb), NULL);
+	g_signal_connect (client, "changed", G_CALLBACK (up_tool_changed_cb), NULL);
 
 	g_main_loop_run (loop);
 
@@ -276,10 +278,7 @@ main (int argc, char **argv)
 		{ NULL }
 	};
 
-#if !defined(GLIB_VERSION_2_36)
 	g_type_init ();
-#endif
-	setlocale(LC_ALL, "");
 
 	context = g_option_context_new ("UPower tool");
 	g_option_context_add_main_entries (context, entries, NULL);
@@ -311,6 +310,11 @@ main (int argc, char **argv)
 
 	if (opt_enumerate || opt_dump) {
 		GPtrArray *devices;
+		ret = up_client_enumerate_devices_sync (client, NULL, &error);
+		if (!ret) {
+			g_warning ("failed to enumerate: %s", error->message);
+			goto out;
+		}
 		devices = up_client_get_devices (client);
 		for (i=0; i < devices->len; i++) {
 			device = (UpDevice*) g_ptr_array_index (devices, i);
@@ -324,16 +328,6 @@ main (int argc, char **argv)
 			}
 		}
 		g_ptr_array_unref (devices);
-		device = up_client_get_display_device (client);
-		if (opt_enumerate) {
-			g_print ("%s\n", up_device_get_object_path (device));
-		} else {
-			g_print ("Device: %s\n", up_device_get_object_path (device));
-			text = up_device_to_text (device);
-			g_print ("%s\n", text);
-			g_free (text);
-		}
-		g_object_unref (device);
 		if (opt_dump) {
 			g_print ("Daemon:\n");
 			up_client_print (client);
@@ -343,6 +337,11 @@ main (int argc, char **argv)
 	}
 
 	if (opt_monitor || opt_monitor_detail) {
+		ret = up_client_enumerate_devices_sync (client, NULL, &error);
+		if (!ret) {
+			g_warning ("failed to enumerate: %s", error->message);
+			goto out;
+		}
 		if (!up_tool_do_monitor (client))
 			goto out;
 		retval = EXIT_SUCCESS;

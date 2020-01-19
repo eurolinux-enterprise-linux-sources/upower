@@ -1,0 +1,23 @@
+diff -up upower-0.9.20/rules/Makefile.am.udev upower-0.9.20/rules/Makefile.am
+--- upower-0.9.20/rules/Makefile.am.udev	2013-10-09 18:36:47.423105278 -0400
++++ upower-0.9.20/rules/Makefile.am	2013-10-09 18:37:10.809252963 -0400
+@@ -1,6 +1,6 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+-udevrulesdir = $(slashlibdir)/udev/rules.d
++udevrulesdir = $(prefix)/lib/udev/rules.d
+ udevrules_DATA =						\
+ 	95-upower-battery-recall-dell.rules			\
+ 	95-upower-battery-recall-fujitsu.rules			\
+diff -up upower-0.9.20/rules/Makefile.in.udev upower-0.9.20/rules/Makefile.in
+--- upower-0.9.20/rules/Makefile.in.udev	2013-10-09 18:37:30.168375214 -0400
++++ upower-0.9.20/rules/Makefile.in	2013-10-09 18:37:49.334496254 -0400
+@@ -310,7 +310,7 @@ target_alias = @target_alias@
+ top_build_prefix = @top_build_prefix@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+-udevrulesdir = $(slashlibdir)/udev/rules.d
++udevrulesdir = $(prefix)/lib/udev/rules.d
+ udevrules_DATA = \
+ 	95-upower-battery-recall-dell.rules			\
+ 	95-upower-battery-recall-fujitsu.rules			\

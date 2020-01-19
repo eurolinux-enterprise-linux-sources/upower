@@ -372,7 +372,7 @@ up_device_hid_coldplug (UpDevice *device)
 	} else {
 		ret = up_device_hid_get_all_data (hid);
 		if (!ret) {
-			g_debug ("failed to coldplug UPS: %s", device_file);
+			g_debug ("failed to coldplug: %s", device_file);
 			goto out;
 		}
 	}
@@ -393,6 +393,7 @@ up_device_hid_refresh (UpDevice *device)
 {
 	gboolean set = FALSE;
 	gboolean ret = FALSE;
+	GTimeVal timeval;
 	guint i;
 	struct hiddev_event ev[64];
 	int rd;
@@ -427,7 +428,8 @@ up_device_hid_refresh (UpDevice *device)
 	up_device_hid_fixup_state (device);
 
 	/* reset time */
-	g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
+	g_get_current_time (&timeval);
+	g_object_set (device, "update-time", (guint64) timeval.tv_sec, NULL);
 out:
 	return ret;
 }
@@ -464,6 +466,36 @@ up_device_hid_get_on_battery (UpDevice *device, gboolean *on_battery)
 }
 
 /**
+ * up_device_hid_get_low_battery:
+ **/
+static gboolean
+up_device_hid_get_low_battery (UpDevice *device, gboolean *low_battery)
+{
+	gboolean ret;
+	gboolean on_battery;
+	UpDeviceHid *hid = UP_DEVICE_HID (device);
+	gdouble percentage;
+
+	g_return_val_if_fail (UP_IS_DEVICE_HID (hid), FALSE);
+	g_return_val_if_fail (low_battery != NULL, FALSE);
+
+	/* reuse the common checks */
+	ret = up_device_hid_get_on_battery (device, &on_battery);
+	if (!ret)
+		return FALSE;
+
+	/* shortcut */
+	if (!on_battery) {
+		*low_battery = FALSE;
+		return TRUE;
+	}
+
+	g_object_get (device, "percentage", &percentage, NULL);
+	*low_battery = (percentage < 10.0f);
+	return TRUE;
+}
+
+/**
  * up_device_hid_init:
  **/
 static void
@@ -473,7 +505,9 @@ up_device_hid_init (UpDeviceHid *hid)
 	hid->priv->fd = -1;
 	hid->priv->poll_timer_id = g_timeout_add_seconds (UP_DEVICE_HID_REFRESH_TIMEOUT,
 							  (GSourceFunc) up_device_hid_poll, hid);
-	g_source_set_name_by_id (hid->priv->poll_timer_id, "[upower] up_device_hid_poll (linux)");
+#if GLIB_CHECK_VERSION(2,25,8)
+	g_source_set_name_by_id (hid->priv->poll_timer_id, "[UpDeviceHid] poll");
+#endif
 }
 
 /**
@@ -510,6 +544,7 @@ up_device_hid_class_init (UpDeviceHidClass *klass)
 	object_class->finalize = up_device_hid_finalize;
 	device_class->coldplug = up_device_hid_coldplug;
 	device_class->get_on_battery = up_device_hid_get_on_battery;
+	device_class->get_low_battery = up_device_hid_get_low_battery;
 	device_class->refresh = up_device_hid_refresh;
 
 	g_type_class_add_private (klass, sizeof (UpDeviceHidPrivate));

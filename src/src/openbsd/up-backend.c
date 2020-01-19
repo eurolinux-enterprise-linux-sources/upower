@@ -27,6 +27,10 @@
 #include "up-device.h"
 #include <string.h> /* strcmp() */
 
+#define UP_BACKEND_SUSPEND_COMMAND	"/usr/sbin/zzz"
+#define UP_BACKEND_POWERSAVE_TRUE_COMMAND	"/usr/sbin/apm -C"
+#define UP_BACKEND_POWERSAVE_FALSE_COMMAND	"/usr/sbin/apm -A"
+
 static void	up_backend_class_init	(UpBackendClass	*klass);
 static void	up_backend_init	(UpBackend		*backend);
 static void	up_backend_finalize	(GObject		*object);
@@ -34,9 +38,9 @@ static void	up_backend_finalize	(GObject		*object);
 static gboolean	up_backend_apm_get_power_info(struct apm_power_info*);
 UpDeviceState up_backend_apm_get_battery_state_value(u_char battery_state);
 static void	up_backend_update_acpibat_state(UpDevice*, struct sensordev);
-static void	up_backend_update_lid_status(UpDaemon*);
 
 static gboolean		up_apm_device_get_on_battery	(UpDevice *device, gboolean *on_battery);
+static gboolean		up_apm_device_get_low_battery	(UpDevice *device, gboolean *low_battery);
 static gboolean		up_apm_device_get_online		(UpDevice *device, gboolean *online);
 static gboolean		up_apm_device_refresh		(UpDevice *device);
 
@@ -92,6 +96,28 @@ up_apm_device_get_on_battery (UpDevice *device, gboolean * on_battery)
 	*on_battery = (state == UP_DEVICE_STATE_DISCHARGING);
 	return TRUE;
 }
+gboolean
+up_apm_device_get_low_battery (UpDevice *device, gboolean * low_battery)
+{
+	gboolean ret;
+	gboolean on_battery;
+	gdouble percentage;
+
+	g_return_val_if_fail (low_battery != NULL, FALSE);
+
+	ret = up_apm_device_get_on_battery (device, &on_battery);
+	if (!ret)
+		return FALSE;
+
+	if (!on_battery) {
+		*low_battery = FALSE;
+		return TRUE;
+	}
+
+	g_object_get (device, "percentage", &percentage, (void*) NULL);
+	*low_battery = (percentage < 10.0f);
+	return TRUE;
+}
 
 gboolean
 up_apm_device_get_online (UpDevice *device, gboolean * online)
@@ -129,10 +155,10 @@ up_backend_coldplug (UpBackend *backend, UpDaemon *daemon)
 	UpApmNative *acnative = NULL;
 	UpApmNative *battnative = NULL;
 	backend->priv->daemon = g_object_ref (daemon);
-
+	/* XXX no way to get lid status atm */
+	up_daemon_set_lid_is_present (backend->priv->daemon, FALSE);
 	if (backend->priv->is_laptop)
 	{
-		up_backend_update_lid_status(daemon);
 		acnative = up_apm_native_new("/ac");
 		if (!up_device_coldplug (backend->priv->ac, backend->priv->daemon, G_OBJECT(acnative)))
 			g_warning ("failed to coldplug ac");
@@ -149,45 +175,71 @@ up_backend_coldplug (UpBackend *backend, UpDaemon *daemon)
 	return TRUE;
 }
 
+
 /**
- * up_backend_unplug:
- * @backend: The %UpBackend class instance
- *
- * Forget about all learned devices, effectively undoing up_backend_coldplug.
- * Resources are released without emitting signals.
- */
-void
-up_backend_unplug (UpBackend *backend)
+ * up_backend_get_powersave_command:
+ **/
+const gchar *
+up_backend_get_powersave_command (UpBackend *backend, gboolean powersave)
 {
-	if (backend->priv->daemon != NULL) {
-		g_object_unref (backend->priv->daemon);
-		backend->priv->daemon = NULL;
-	}
+	if (powersave)
+		return UP_BACKEND_POWERSAVE_TRUE_COMMAND;
+	return UP_BACKEND_POWERSAVE_FALSE_COMMAND;
 }
 
 /**
- * up_backend_get_critical_action:
- * @backend: The %UpBackend class instance
- *
- * Which action will be taken when %UP_DEVICE_LEVEL_ACTION
- * warning-level occurs.
+ * up_backend_get_suspend_command:
  **/
-const char *
-up_backend_get_critical_action (UpBackend *backend)
+const gchar *
+up_backend_get_suspend_command (UpBackend *backend)
 {
-	return "PowerOff";
+	return UP_BACKEND_SUSPEND_COMMAND;
 }
 
 /**
- * up_backend_take_action:
- * @backend: The %UpBackend class instance
- *
- * Act upon the %UP_DEVICE_LEVEL_ACTION warning-level.
+ * up_backend_get_hibernate_command:
  **/
-void
-up_backend_take_action (UpBackend *backend)
+const gchar *
+up_backend_get_hibernate_command (UpBackend *backend)
 {
-	/* FIXME: Implement */
+	return NULL;
+}
+
+gboolean
+up_backend_emits_resuming (UpBackend *backend)
+{
+	return FALSE;
+}
+
+/**
+ * up_backend_kernel_can_suspend:
+ **/
+gboolean
+up_backend_kernel_can_suspend (UpBackend *backend)
+{
+	return TRUE;
+}
+
+/**
+ * up_backend_kernel_can_hibernate:
+ **/
+gboolean
+up_backend_kernel_can_hibernate (UpBackend *backend)
+{
+	return FALSE;
+}
+
+gboolean
+up_backend_has_encrypted_swap (UpBackend *backend)
+{
+	return FALSE;
+}
+
+/* Return value: a percentage value */
+gfloat
+up_backend_get_used_swap (UpBackend *backend)
+{
+	return 0;
 }
 
 /**
@@ -232,7 +284,6 @@ up_backend_update_ac_state(UpDevice* device)
 	gboolean ret, new_is_online, cur_is_online;
 	struct apm_power_info a;
 
-	up_backend_update_lid_status(up_device_get_daemon(device));
 	ret = up_backend_apm_get_power_info(&a);
 	if (!ret)
 		return ret;
@@ -254,7 +305,7 @@ static gboolean
 up_backend_update_battery_state(UpDevice* device)
 {
 	gdouble percentage;
-	gboolean ret, is_present;
+	gboolean ret;
 	struct sensordev sdev;
 	UpDeviceState cur_state, new_state;
 	gint64 cur_time_to_empty, new_time_to_empty;
@@ -268,48 +319,15 @@ up_backend_update_battery_state(UpDevice* device)
 		"state", &cur_state,
 		"percentage", &percentage,
 		"time-to-empty", &cur_time_to_empty,
-		"is-present", &is_present,
 		(void*) NULL);
 
 	/* XXX use acpibat0.raw0 if available */
-	/*
-	 * XXX: Stop having a split brain regarding
-	 * up_backend_apm_get_battery_state_value(). Either move the state
-	 * setting code below into that function, or inline that function here.
-	 */
 	new_state = up_backend_apm_get_battery_state_value(a.battery_state);
 	// if percentage/minutes goes down or ac is off, we're likely discharging..
 	if (percentage < a.battery_life || cur_time_to_empty < new_time_to_empty || a.ac_state == APM_AC_OFF)
 		new_state = UP_DEVICE_STATE_DISCHARGING;
-	/*
-	 * If we're on AC, we may either be charging, or the battery is already
-	 * fully charged. Figure out which.
-	 */
 	if (a.ac_state == APM_AC_ON)
-		if ((gdouble) a.battery_life >= 99.0)
-			new_state = UP_DEVICE_STATE_FULLY_CHARGED;
-		else
-			new_state = UP_DEVICE_STATE_CHARGING;
-
-	if ((a.battery_state == APM_BATTERY_ABSENT) ||
-	    (a.battery_state == APM_BATT_UNKNOWN)) {
-		/* Reset some known fields which remain untouched below. */
-		g_object_set(device,
-			     "is-rechargeable", FALSE,
-			     "energy", (gdouble) 0.0,
-			     "energy-empty", (gdouble) 0.0,
-			     "energy-full", (gdouble) 0.0,
-			     "energy-full-design", (gdouble) 0.0,
-			     "energy-rate", (gdouble) 0.0,
-			     NULL);
-		is_present = FALSE;
-		if (a.battery_state == APM_BATTERY_ABSENT)
-			new_state = UP_DEVICE_STATE_EMPTY;
-		else
-			new_state = UP_DEVICE_STATE_UNKNOWN;
-	} else {
-		is_present = TRUE;
-	}
+		new_state = UP_DEVICE_STATE_CHARGING;
 
 	// zero out new_time_to empty if we're not discharging or minutes_left is negative
 	new_time_to_empty = (new_state == UP_DEVICE_STATE_DISCHARGING && a.minutes_left > 0 ? a.minutes_left : 0);
@@ -322,7 +340,6 @@ up_backend_update_battery_state(UpDevice* device)
 			"state", new_state,
 			"percentage", (gdouble) a.battery_life,
 			"time-to-empty", new_time_to_empty * 60,
-			"is-present", is_present,
 			(void*) NULL);
 		if(up_native_get_sensordev("acpibat0", &sdev))
 			up_backend_update_acpibat_state(device, sdev);
@@ -337,8 +354,8 @@ up_backend_update_acpibat_state(UpDevice* device, struct sensordev s)
 {
 	enum sensor_type type;
 	int numt;
-	gdouble bst_volt, bst_rate, bif_cap, bif_lastfullcap, bst_cap, bif_lowcap, capacity;
-	/* gdouble bif_dvolt; */
+	gdouble bst_volt, bst_rate, bif_lastfullcap, bst_cap, bif_lowcap;
+	/* gdouble bif_dvolt, bif_dcap, capacity; */
 	struct sensor sens;
 	size_t slen = sizeof(sens);
 	int mib[] = {CTL_HW, HW_SENSORS, 0, 0, 0};
@@ -353,9 +370,6 @@ up_backend_update_acpibat_state(UpDevice* device, struct sensordev s)
 			else if (slen > 0 && (sens.flags & SENSOR_FINVALID) == 0) {
 				if (sens.type == SENSOR_VOLTS_DC && !strcmp(sens.desc, "current voltage"))
 					bst_volt = sens.value / 1000000.0f;
-				if ((sens.type == SENSOR_AMPHOUR || sens.type == SENSOR_WATTHOUR) && !strcmp(sens.desc, "design capacity")) {
-					bif_cap = (sens.type == SENSOR_AMPHOUR ? bst_volt : 1) * sens.value / 1000000.0f;
-				}
 				if ((sens.type == SENSOR_AMPHOUR || sens.type == SENSOR_WATTHOUR) && !strcmp(sens.desc, "last full capacity")) {
 					bif_lastfullcap = (sens.type == SENSOR_AMPHOUR ? bst_volt : 1) * sens.value / 1000000.0f;
 				}
@@ -370,30 +384,19 @@ up_backend_update_acpibat_state(UpDevice* device, struct sensordev s)
 				}
 				/*
 				bif_dvolt = "voltage" = unused ?
+				capacity = lastfull/dcap * 100 ?
 				amphour1 = warning capacity ?
 				raw0 = battery state
 				*/
 			}
 		}
 	}
-
-	capacity = 0.0f;
-	if(bif_lastfullcap > 0 && bif_cap > 0) {
-		capacity = (bif_lastfullcap / bif_cap) * 100.0f;
-		if (capacity < 0)
-			capacity = 0.0f;
-		if (capacity > 100.0)
-			capacity = 100.0f;
-	}
-
 	g_object_set (device,
 		"energy", bst_cap,
 		"energy-full", bif_lastfullcap,
-		"energy-full-design", bif_cap,
 		"energy-rate", bst_rate,
 		"energy-empty", bif_lowcap,
 		"voltage", bst_volt,
-		"capacity", capacity,
 		(void*) NULL);
 }
 
@@ -415,6 +418,7 @@ static gboolean
 up_apm_device_refresh(UpDevice* device)
 {
 	UpDeviceKind type;
+	GTimeVal timeval;
 	gboolean ret;
 	g_object_get (device, "type", &type, NULL);
 
@@ -430,74 +434,12 @@ up_apm_device_refresh(UpDevice* device)
 			break;
 	}
 
-	if (ret)
-		g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
-
-	return ret;
-}
-
-/*
- * Check the lid status, return TRUE if one was found, FALSE otherwise.
- */
-static void
-up_backend_update_lid_status(UpDaemon *daemon) {
-
-	/* Use hw.sensors.acpibtn0.indicator0=On (lid open) */
-	struct sensordev sensordev;
-	struct sensor sensor;
-	size_t sdlen, slen;
-	int dev, numt, mib[5] = {CTL_HW, HW_SENSORS, 0, 0, 0};
-	gboolean lid_found = FALSE;
-	gboolean lid_open = FALSE;
-
-	sdlen = sizeof(struct sensordev);
-	slen  = sizeof(struct sensor);
-
-	/* go through all acpibtn devices, and check if one of the values match "lid"
-	   if so, use that device.
-	*/
-	for (dev = 0; SENSOR_MAX_TYPES; dev++) {
-		mib[2] = dev;
-		if (sysctl(mib, 3, &sensordev, &sdlen, NULL, 0) == -1) {
-			if (errno == ENXIO)
-				continue;
-			if (errno == ENOENT)
-				break;
-		}
-
-		if (strstr(sensordev.xname, "acpibtn") != NULL) {
-			mib[3] = SENSOR_INDICATOR;
-			for (numt = 0; numt < sensordev.maxnumt[SENSOR_INDICATOR]; numt++) {
-				mib[4] = numt;
-				if (sysctl(mib, 5, &sensor, &slen, NULL, 0) == -1) {
-					if (errno != ENOENT) {
-						g_warning("failed to get sensor data from %s",
-							  sensordev.xname);
-						continue;
-					}
-				}
-
-				/*
-				 * Found an acpibtn device, now check if the
-				 * description has got anything with a lid in it.
-				 */
-				if (strstr(sensor.desc, "lid open") == NULL) {
-					g_warning ("nothing here for %s with %s\n",
-						   sensordev.xname, sensor.desc);
-					continue;
-				} else {
-					lid_found = TRUE;
-					if (sensor.value)
-						lid_open = TRUE;
-					else
-						lid_open = FALSE;
-				}
-			}
-		}
+	if (ret) {
+		g_get_current_time (&timeval);
+		g_object_set (device, "update-time", (guint64) timeval.tv_sec, NULL);
 	}
 
-	up_daemon_set_lid_is_present (daemon, lid_found);
-	up_daemon_set_lid_is_closed (daemon, !lid_open);
+	return ret;
 }
 
 /* thread doing kqueue() on apm device */
@@ -555,7 +497,9 @@ up_backend_apm_event_thread(gpointer object)
 UpBackend *
 up_backend_new (void)
 {
-	return g_object_new (UP_TYPE_BACKEND, NULL);
+	UpBackend *backend;
+	backend = g_object_new (UP_TYPE_BACKEND, NULL);
+	return UP_BACKEND (backend);
 }
 
 /**
@@ -591,10 +535,11 @@ static void
 up_backend_init (UpBackend *backend)
 {
 	GError *err = NULL;
+	GTimeVal timeval;
 	UpDeviceClass *device_class;
-	gint64 current_time;
 
 	backend->priv = UP_BACKEND_GET_PRIVATE (backend);
+	backend->priv->daemon = NULL;
 	backend->priv->is_laptop = up_native_is_laptop();
 	g_debug("is_laptop:%d",backend->priv->is_laptop);
 	if (backend->priv->is_laptop)
@@ -603,21 +548,24 @@ up_backend_init (UpBackend *backend)
 		backend->priv->battery = UP_DEVICE(up_device_new ());
 		device_class = UP_DEVICE_GET_CLASS (backend->priv->battery);
 		device_class->get_on_battery = up_apm_device_get_on_battery;
+		device_class->get_low_battery = up_apm_device_get_low_battery;
 		device_class->get_online = up_apm_device_get_online;
 		device_class->refresh = up_apm_device_refresh;
 		device_class = UP_DEVICE_GET_CLASS (backend->priv->ac);
 		device_class->get_on_battery = up_apm_device_get_on_battery;
+		device_class->get_low_battery = up_apm_device_get_low_battery;
 		device_class->get_online = up_apm_device_get_online;
 		device_class->refresh = up_apm_device_refresh;
+		g_thread_init (NULL);
 		/* creates thread */
-		if((backend->priv->apm_thread = (GThread*) g_thread_try_new("apm-poller",(GThreadFunc)up_backend_apm_event_thread, (void*) backend, &err) == NULL))
+		if((backend->priv->apm_thread = (GThread*) g_thread_create((GThreadFunc)up_backend_apm_event_thread, (void*) backend, FALSE, &err) == NULL))
 		{
 			g_warning("Thread create failed: %s", err->message);
 			g_error_free (err);
 		}
 
 		/* setup dummy */
-		current_time = g_get_real_time () / G_USEC_PER_SEC;
+		g_get_current_time (&timeval);
 		g_object_set (backend->priv->battery,
 			      "type", UP_DEVICE_KIND_BATTERY,
 			      "power-supply", TRUE,
@@ -627,14 +575,17 @@ up_backend_init (UpBackend *backend)
 			      "state", UP_DEVICE_STATE_UNKNOWN,
 			      "percentage", 0.0f,
 			      "time-to-empty", (gint64) 0,
-			      "update-time", (guint64) current_time,
+			      "update-time", (guint64) timeval.tv_sec,
 			      (void*) NULL);
 		g_object_set (backend->priv->ac,
 			      "type", UP_DEVICE_KIND_LINE_POWER,
 			      "online", TRUE,
 			      "power-supply", TRUE,
-			      "update-time", (guint64) current_time,
+			      "update-time", (guint64) timeval.tv_sec,
 			      (void*) NULL);
+	} else {
+		backend->priv->ac = NULL;
+		backend->priv->battery = NULL;
 	}
 }
 /**

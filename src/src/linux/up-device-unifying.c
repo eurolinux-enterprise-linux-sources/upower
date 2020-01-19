@@ -30,8 +30,11 @@
 #include "up-device-unifying.h"
 #include "up-types.h"
 
+#define UP_DEVICE_UNIFYING_REFRESH_TIMEOUT			60 /* seconds */
+
 struct UpDeviceUnifyingPrivate
 {
+	guint			 poll_timer_id;
 	HidppDevice		*hidpp_device;
 };
 
@@ -48,26 +51,14 @@ up_device_unifying_refresh (UpDevice *device)
 {
 	gboolean ret;
 	GError *error = NULL;
-	HidppRefreshFlags refresh_flags;
+	GTimeVal timeval;
 	UpDeviceState state = UP_DEVICE_STATE_UNKNOWN;
 	UpDeviceUnifying *unifying = UP_DEVICE_UNIFYING (device);
 	UpDeviceUnifyingPrivate *priv = unifying->priv;
-	double lux;
 
-	/* refresh the battery stats */
-	refresh_flags = HIDPP_REFRESH_FLAGS_BATTERY;
-
-	/*
-	 * When a device is initially unreachable, the HID++ version cannot be
-	 * determined.  Therefore try determining the HID++ version, otherwise
-	 * battery information cannot be retrieved. Assume that the HID++
-	 * version does not change once detected.
-	 */
-	if (hidpp_device_get_version (priv->hidpp_device) == 0)
-		refresh_flags |= HIDPP_REFRESH_FLAGS_VERSION;
-
+	/* refresh just the battery stats */
 	ret = hidpp_device_refresh (priv->hidpp_device,
-				    refresh_flags,
+				    HIDPP_REFRESH_FLAGS_BATTERY,
 				    &error);
 	if (!ret) {
 		g_warning ("failed to coldplug unifying device: %s",
@@ -88,22 +79,12 @@ up_device_unifying_refresh (UpDevice *device)
 	default:
 		break;
 	}
-
-	/* if a device is unreachable, some known values do not make sense */
-	if (!hidpp_device_is_reachable (priv->hidpp_device)) {
-		state = UP_DEVICE_STATE_UNKNOWN;
-	}
-
-	lux = hidpp_device_get_luminosity (priv->hidpp_device);
-	if (lux >= 0) {
-		g_object_set (device, "luminosity", lux, NULL);
-	}
-
+	g_get_current_time (&timeval);
 	g_object_set (device,
-		      "is-present", hidpp_device_is_reachable (priv->hidpp_device),
+		      "is-present", hidpp_device_get_version (priv->hidpp_device) > 0,
 		      "percentage", (gdouble) hidpp_device_get_batt_percentage (priv->hidpp_device),
 		      "state", state,
-		      "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC,
+		      "update-time", (guint64) timeval.tv_sec,
 		      NULL);
 out:
 	return TRUE;
@@ -142,7 +123,6 @@ up_device_unifying_coldplug (UpDevice *device)
 	const gchar *bus_address;
 	const gchar *device_file;
 	const gchar *type;
-	const gchar *vendor;
 	gboolean ret = FALSE;
 	gchar *endptr = NULL;
 	gchar *tmp;
@@ -161,7 +141,7 @@ up_device_unifying_coldplug (UpDevice *device)
 	type = g_udev_device_get_property (native, "UPOWER_BATTERY_TYPE");
 	if (type == NULL)
 		goto out;
-	if ((g_strcmp0 (type, "unifying") != 0) && (g_strcmp0 (type, "lg-wireless") != 0))
+	if (g_strcmp0 (type, "unifying") != 0)
 		goto out;
 
 	/* get the device index */
@@ -172,65 +152,20 @@ up_device_unifying_coldplug (UpDevice *device)
 		g_debug ("Could not get physical device index");
 		goto out;
 	}
-
-	if (g_strcmp0 (type, "lg-wireless") == 0)
-		hidpp_device_set_index (unifying->priv->hidpp_device, 1);
-	else {
-		hidpp_device_set_index (unifying->priv->hidpp_device,
+	hidpp_device_set_index (unifying->priv->hidpp_device,
 				g_ascii_strtoull (tmp + 1, &endptr, 10));
-		if (endptr != NULL && endptr[0] != '\0') {
-			g_debug ("HID_PHYS malformed: '%s'", bus_address);
-			goto out;
-		}
+	if (endptr != NULL && endptr[0] != '\0') {
+		g_debug ("HID_PHYS malformed: '%s'", bus_address);
+		goto out;
 	}
 
-	/* find the hidraw device that matches */
+	/* find the hidraw device that matches the parent */
 	parent = g_udev_device_get_parent (native);
 	client = g_udev_client_new (NULL);
 	hidraw_list = g_udev_client_query_by_subsystem (client, "hidraw");
 	for (l = hidraw_list; l != NULL; l = l->next) {
-		gboolean receiver_found = FALSE;
-
-		if (g_strcmp0 (type, "lg-wireless") == 0) {
-			const gchar *filename;
-			GDir* dir;
-			GUdevDevice *parent_dev;
-
-			parent_dev = g_udev_device_get_parent(l->data);
-			receiver_found = g_strcmp0 (g_udev_device_get_sysfs_path (native),
-						g_udev_device_get_sysfs_path(parent_dev)) == 0;
-			g_object_unref (parent_dev);
-
-			if (!receiver_found)
-				continue;
-
-			/* hidraw device which exposes hiddev interface is our receiver */
-			tmp = g_build_filename (g_udev_device_get_sysfs_path (parent),
-					        "usbmisc", NULL);
-			dir = g_dir_open (tmp, 0, &error);
-			g_free(tmp);
-			if (error) {
-				g_clear_error(&error);
-				continue;
-			}
-			while ( (filename = g_dir_read_name(dir)) ) {
-				if (g_ascii_strncasecmp(filename, "hiddev", 6) == 0) {
-					receiver_found = TRUE;
-					break;
-				}
-			}
-			g_dir_close(dir);
-		} else {
-			GUdevDevice *parent_dev;
-
-			/* Unifying devices are located under their receiver */
-			parent_dev = g_udev_device_get_parent(l->data);
-			receiver_found = g_strcmp0 (g_udev_device_get_sysfs_path (parent),
-						g_udev_device_get_sysfs_path(parent_dev)) == 0;
-			g_object_unref (parent_dev);
-		}
-
-		if (receiver_found) {
+		if (g_strcmp0 (g_udev_device_get_sysfs_path (parent),
+			       g_udev_device_get_sysfs_attr (l->data, "device")) == 0) {
 			receiver = g_object_ref (l->data);
 			break;
 		}
@@ -250,14 +185,10 @@ up_device_unifying_coldplug (UpDevice *device)
 	hidpp_device_set_hidraw_device (unifying->priv->hidpp_device,
 					device_file);
 
-	/* give newly paired devices a chance to complete pairing */
-	g_usleep(30000);
-
 	/* coldplug initial parameters */
 	ret = hidpp_device_refresh (unifying->priv->hidpp_device,
 				    HIDPP_REFRESH_FLAGS_VERSION |
 				    HIDPP_REFRESH_FLAGS_KIND |
-				    HIDPP_REFRESH_FLAGS_SERIAL |
 				    HIDPP_REFRESH_FLAGS_MODEL,
 				    &error);
 	if (!ret) {
@@ -267,16 +198,11 @@ up_device_unifying_coldplug (UpDevice *device)
 		goto out;
 	}
 
-	vendor = g_udev_device_get_property (native, "UPOWER_VENDOR");
-	if (vendor == NULL)
-		vendor = g_udev_device_get_property (native, "ID_VENDOR");
-
 	/* set some default values */
 	g_object_set (device,
-		      "vendor", vendor,
+		      "vendor", g_udev_device_get_property (native, "ID_VENDOR"),
 		      "type", up_device_unifying_get_device_kind (unifying),
 		      "model", hidpp_device_get_model (unifying->priv->hidpp_device),
-		      "serial", hidpp_device_get_serial (unifying->priv->hidpp_device),
 		      "has-history", TRUE,
 		      "is-rechargeable", TRUE,
 		      "power-supply", FALSE,
@@ -284,10 +210,13 @@ up_device_unifying_coldplug (UpDevice *device)
 
 	/* set up a poll to send the magic packet */
 	up_device_unifying_refresh (device);
-	up_daemon_start_poll (G_OBJECT (device), (GSourceFunc) up_device_unifying_refresh);
+	unifying->priv->poll_timer_id = g_timeout_add_seconds (UP_DEVICE_UNIFYING_REFRESH_TIMEOUT,
+							       (GSourceFunc) up_device_unifying_refresh,
+							       device);
 	ret = TRUE;
 out:
-	g_list_free_full (hidraw_list, (GDestroyNotify) g_object_unref);
+	g_list_foreach (hidraw_list, (GFunc) g_object_unref, NULL);
+	g_list_free (hidraw_list);
 	if (parent != NULL)
 		g_object_unref (parent);
 	if (receiver != NULL)
@@ -304,6 +233,7 @@ static void
 up_device_unifying_init (UpDeviceUnifying *unifying)
 {
 	unifying->priv = UP_DEVICE_UNIFYING_GET_PRIVATE (unifying);
+	unifying->priv->poll_timer_id = 0;
 }
 
 /**
@@ -320,7 +250,8 @@ up_device_unifying_finalize (GObject *object)
 	unifying = UP_DEVICE_UNIFYING (object);
 	g_return_if_fail (unifying->priv != NULL);
 
-	up_daemon_stop_poll (object);
+	if (unifying->priv->poll_timer_id > 0)
+		g_source_remove (unifying->priv->poll_timer_id);
 	if (unifying->priv->hidpp_device != NULL)
 		g_object_unref (unifying->priv->hidpp_device);
 

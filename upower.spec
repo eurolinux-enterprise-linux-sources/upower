@@ -2,32 +2,34 @@
 
 Summary:        Power Management Service
 Name:           upower
-Version:        0.99.2
-Release:        1%{?dist}
+Version:        0.9.20
+Release:        3%{?dist}
 License:        GPLv2+
 Group:          System Environment/Libraries
 URL:            http://upower.freedesktop.org/
 Source0:        http://upower.freedesktop.org/releases/upower-%{version}.tar.xz
-
-## upstream fixes
-Patch5: 0005-lib-Fix-crash-on-uninitialized-variant.patch
-
 BuildRequires:  sqlite-devel
 BuildRequires:  libtool
 BuildRequires:  intltool
 BuildRequires:  gettext
 BuildRequires:  libgudev1-devel
 %ifnarch s390 s390x
-BuildRequires:  libusbx-devel
+BuildRequires:  libusb1-devel
 BuildRequires:  libimobiledevice-devel
 %endif
 BuildRequires:  glib2-devel >= 2.6.0
 BuildRequires:  dbus-devel  >= 1.2
 BuildRequires:  dbus-glib-devel >= 0.82
+BuildRequires:  polkit-devel >= 0.92
 BuildRequires:  gobject-introspection-devel
 BuildRequires:  gtk-doc
+Requires:       polkit >= 0.92
 Requires:       udev
+Requires:       pm-utils >= 1.2.2.1
 Requires:       gobject-introspection
+
+# install udev rules in /usr/lib/udev
+Patch0: upower-udev.patch
 
 %description
 UPower (formerly DeviceKit-power) provides a daemon, API and command
@@ -36,33 +38,27 @@ line tools for managing power devices attached to the system.
 %package devel
 Summary: Headers and libraries for UPower
 Group: Development/Libraries
-Requires: %{name}%{?_isa} = %{version}-%{release}
+Requires: %{name} = %{version}-%{release}
+Obsoletes: DeviceKit-power-devel < 1:0.9.0-2
 
 %description devel
 Headers and libraries for UPower.
 
-%package devel-docs
-Summary: Developer documentation for for libupower-glib
-Requires: %{name} = %{version}-%{release}
-BuildArch: noarch
-
-%description devel-docs
-Developer documentation for for libupower-glib.
-
 %prep
-%autosetup -p1
+%setup -q
+%patch0 -p1
 
 %build
 %configure \
         --enable-gtk-doc \
         --disable-static \
+        --enable-deprecated \
         --enable-introspection \
 %ifarch s390 s390x
 	--with-backend=dummy
 %endif
 
-# Disable SMP build, fails to build docs
-make
+make %{?_smp_mflags}
 
 %install
 make install DESTDIR=$RPM_BUILD_ROOT
@@ -75,9 +71,8 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %postun -p /sbin/ldconfig
 
 %files -f upower.lang
-%{!?_licensedir:%global license %%doc}
-%license COPYING
-%doc NEWS AUTHORS HACKING README
+%defattr(-,root,root,-)
+%doc NEWS COPYING AUTHORS HACKING README
 %{_libdir}/libupower-glib.so.*
 %{_sysconfdir}/dbus-1/system.d/*.conf
 %ifnarch s390 s390x
@@ -92,11 +87,19 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %{_mandir}/man1/*
 %{_mandir}/man7/*
 %{_mandir}/man8/*
+%{_datadir}/polkit-1/actions/*.policy
 %{_datadir}/dbus-1/system-services/*.service
 /usr/lib/systemd/system/*.service
+%ifnarch s390 s390x
+/usr/lib/systemd/system-sleep/notify-upower.sh
+%endif
 
 %files devel
+%defattr(-,root,root,-)
 %{_datadir}/dbus-1/interfaces/*.xml
+%{_datadir}/gtk-doc
+%dir %{_datadir}/gtk-doc/html/UPower
+%{_datadir}/gtk-doc/html/UPower/*
 %{_libdir}/libupower-glib.so
 %{_libdir}/pkgconfig/*.pc
 %{_datadir}/gir-1.0/*.gir
@@ -104,30 +107,7 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %{_includedir}/libupower-glib/up-*.h
 %{_includedir}/libupower-glib/upower.h
 
-%files devel-docs
-%{_datadir}/gtk-doc
-%dir %{_datadir}/gtk-doc/html/UPower
-%{_datadir}/gtk-doc/html/UPower/*
-
 %changelog
-* Thu Dec 18 2014 Richard Hughes <rhughes@redhat.com> - 0.99.2-1
-- New upstream release
-- Resolves: #1174421
-
-* Mon Mar 17 2014 Richard Hughes <rhughes@redhat.com> - 0.9.20-7
-- Mark the devel-docs subpackage as noarch to silence a rpmdiff false positive.
-- Resolves: #1070661
-
-* Mon Mar 17 2014 Richard Hughes <rhughes@redhat.com> - 0.9.20-6
-- Split out a new devel-docs subpackage to fix multilib_policy=all installs.
-- Resolves: #1070661
-
-* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 0.9.20-5
-- Mass rebuild 2014-01-24
-
-* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 0.9.20-4
-- Mass rebuild 2013-12-27
-
 * Wed Oct  9 2013 Matthias Clasen <mclasen@redhat.com> - 0.9.20-3
 - Install udev rules in /usr/lib/udev (#884202)
 

@@ -213,7 +213,7 @@ up_device_wup_parse_command (UpDeviceWup *wup, const gchar *data)
 	/* replace the first ';' char with a NULL if it exists */
 	length = strlen (packet);
 	for (i=0; i<length; i++) {
-		if (packet[i] < 0x20 || packet[i] > 0x7e)
+		if (packet[i] < 0x20 && packet[i] > 0x7e)
 			packet[i] = '?';
 		if (packet[i] == ';') {
 			packet[i] = '\0';
@@ -388,6 +388,7 @@ static gboolean
 up_device_wup_refresh (UpDevice *device)
 {
 	gboolean ret = FALSE;
+	GTimeVal timeval;
 	gchar *data = NULL;
 	UpDeviceWup *wup = UP_DEVICE_WUP (device);
 
@@ -406,7 +407,8 @@ up_device_wup_refresh (UpDevice *device)
 	}
 
 	/* reset time */
-	g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
+	g_get_current_time (&timeval);
+	g_object_set (device, "update-time", (guint64) timeval.tv_sec, NULL);
 
 out:
 	g_free (data);
@@ -424,7 +426,9 @@ up_device_wup_init (UpDeviceWup *wup)
 	wup->priv->fd = -1;
 	wup->priv->poll_timer_id = g_timeout_add_seconds (UP_DEVICE_WUP_REFRESH_TIMEOUT,
 							  (GSourceFunc) up_device_wup_poll_cb, wup);
-	g_source_set_name_by_id (wup->priv->poll_timer_id, "[upower] up_device_wup_poll_cb (linux)");
+#if GLIB_CHECK_VERSION(2,25,8)
+	g_source_set_name_by_id (wup->priv->poll_timer_id, "[UpDeviceWup] poll");
+#endif
 }
 
 /**

@@ -1,8 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
 
 m4_define([up_major_version], [0])
-m4_define([up_minor_version], [99])
-m4_define([up_micro_version], [2])
+m4_define([up_minor_version], [9])
+m4_define([up_micro_version], [20])
 m4_define([up_version],
           [up_major_version.up_minor_version.up_micro_version])
 
@@ -43,8 +43,8 @@ AC_SUBST(UP_MICRO_VERSION)
 # CURRENT	If the API or ABI interface has changed (reset REVISION to 0)
 # REVISION	If the API and ABI remains the same, but bugs are fixed.
 # AGE		Don't use.
-LT_CURRENT=3
-LT_REVISION=1
+LT_CURRENT=1
+LT_REVISION=2
 LT_AGE=0
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
@@ -82,11 +82,13 @@ AM_CONDITIONAL(MAN_PAGES_ENABLED, test x$enable_man_pages = xyes)
 
 GTK_DOC_CHECK([1.11],[--flavour no-tmpl])
 
-AC_ARG_WITH([udevrulesdir],
-            AS_HELP_STRING([--with-udevrulesdir=DIR], [Directory for udev rules]),
-            [],
-            [with_udevrulesdir=$($PKG_CONFIG --variable=udevdir udev)"/rules.d"])
-AC_SUBST([udevrulesdir], [$with_udevrulesdir])
+# udev rules go in /lib, not /usr/lib
+if test "$prefix" = "/usr" -o "$prefix" = "/usr/local" ; then
+  slashlibdir=/lib
+else
+  slashlibdir=$prefix/lib
+fi
+AC_SUBST(slashlibdir)
 
 # History/Db dir
 AC_ARG_WITH([historydir],
@@ -140,44 +142,60 @@ else
 fi
 AC_SUBST(WARNINGFLAGS_C)
 
-# check for PIE (position independent executable) support
-AX_CHECK_COMPILE_FLAG([-fPIE],
-		      [AX_CHECK_LINK_FLAG([-fPIE -pie],
-					  [PIE_CFLAGS="-fPIE" PIE_LDFLAGS="-pie"])])
-AC_SUBST(PIE_CFLAGS)
-AC_SUBST(PIE_LDFLAGS)
-
-# check for full RELRO (relocation read-only) support
-AX_CHECK_LINK_FLAG([-Wl,-z,relro,-z,now],
-		   [RELRO_LDFLAGS="-Wl,-z,relro,-z,now"])
-AC_SUBST([RELRO_LDFLAGS])
-
-PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.34.0])
+PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.21.5])
 PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.0])
 PKG_CHECK_MODULES(DBUS_GLIB, [dbus-glib-1 >= 0.76])
+PKG_CHECK_MODULES(POLKIT, polkit-gobject-1 >= 0.97)
 PKG_CHECK_MODULES(GIO, [gio-2.0 >= 2.16.1])
-PKG_CHECK_MODULES(GIO_UNIX, [gio-unix-2.0])
 
 dnl ====================================================================
 dnl Check for systemd
 dnl ====================================================================
+AC_ARG_ENABLE([systemd],
+              AS_HELP_STRING([--enable-systemd], [Use systemd]),
+              [enable_systemd=$enableval],
+              [enable_systemd=auto])
+
+PKG_CHECK_MODULES(SYSTEMD,
+                  [libsystemd-daemon],
+                  [have_systemd=yes], [have_systemd=no])
+
+AC_MSG_CHECKING([whether to use systemd])
+
+if test x$enable_systemd = xauto ; then
+        if test x$have_systemd = xno ; then
+                enable_systemd=no
+        else
+                enable_systemd=yes
+        fi
+fi
+AC_MSG_RESULT($enable_systemd)
+
+if test x$enable_systemd = xyes; then
+        if test x$have_systemd = xno; then
+                AC_MSG_ERROR([Systemd support explicitly required, but systemd not found])
+        fi
+        AC_DEFINE(HAVE_SYSTEMD, 1, [Define if systemd is used for session tracking])
+fi
+
+AC_SUBST(SYSTEMD_CFLAGS)
+AC_SUBST(SYSTEMD_LIBS)
+
+AM_CONDITIONAL(HAVE_SYSTEMD, [test "$with_systemd" = "yes"], [Using systemd])
+
 AC_ARG_WITH([systemdutildir],
             AS_HELP_STRING([--with-systemdutildir=DIR], [Directory for systemd utilities]),
             [],
             [with_systemdutildir=$($PKG_CONFIG --variable=systemdutildir systemd)])
-if test x$with_systemdutildir != xno; then
-        AC_SUBST([systemdutildir], [$with_systemdutildir])
-fi
-AM_CONDITIONAL(HAVE_SYSTEMDUTILDIR, [test -n "$systemdutildir"])
+AC_SUBST([systemdutildir], [$with_systemdutildir])
+AM_CONDITIONAL(HAVE_SYSTEMDUTILDIR, [test -n "$with_systemdutildir"])
 
 AC_ARG_WITH([systemdsystemunitdir],
             AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
             [],
             [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
-if test x$with_systemdsystemunitdir != xno; then
-        AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
-fi
-AM_CONDITIONAL(HAVE_SYSTEMDSYSTEMUNITDIR, [test -n "$systemdsystemunitdir"])
+AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
+AM_CONDITIONAL(HAVE_SYSTEMDSYSTEMUNITDIR, [test -n "$with_systemdsystemunitdir"])
 
 dnl ---------------------------------------------------------------------------
 dnl - Compile time default choice of backend
@@ -254,6 +272,7 @@ doc/Makefile
 doc/version.xml
 doc/man/Makefile
 doc/dbus/Makefile
+policy/Makefile
 rules/Makefile
 libupower-glib/Makefile
 libupower-glib/up-version.h

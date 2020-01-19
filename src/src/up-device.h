@@ -23,6 +23,7 @@
 #define __UP_DEVICE_H__
 
 #include <glib-object.h>
+#include <polkit/polkit.h>
 #include <dbus/dbus-glib.h>
 
 #include "up-daemon.h"
@@ -54,6 +55,8 @@ typedef struct
 	const gchar	*(*get_id)		(UpDevice	*device);
 	gboolean	 (*get_on_battery)	(UpDevice	*device,
 						 gboolean	*on_battery);
+	gboolean	 (*get_low_battery)	(UpDevice	*device,
+						 gboolean	*low_battery);
 	gboolean	 (*get_online)		(UpDevice	*device,
 						 gboolean	*online);
 } UpDeviceClass;
@@ -71,18 +74,18 @@ GQuark		 up_device_error_quark		(void);
 GType		 up_device_error_get_type	(void);
 GType		 up_device_get_type		(void);
 UpDevice	*up_device_new			(void);
+void		 up_device_test		(gpointer	 user_data);
 
 gboolean	 up_device_coldplug		(UpDevice	*device,
 						 UpDaemon	*daemon,
 						 GObject	*native);
-void		 up_device_unplug		(UpDevice	*device);
-gboolean	 up_device_register_display_device (UpDevice	*device,
-						    UpDaemon	*daemon);
 UpDaemon	*up_device_get_daemon		(UpDevice	*device);
 GObject		*up_device_get_native		(UpDevice	*device);
 const gchar	*up_device_get_object_path	(UpDevice	*device);
 gboolean	 up_device_get_on_battery	(UpDevice	*device,
 						 gboolean	*on_battery);
+gboolean	 up_device_get_low_battery	(UpDevice	*device,
+						 gboolean	*low_battery);
 gboolean	 up_device_get_online		(UpDevice	*device,
 						 gboolean	*online);
 gboolean	 up_device_refresh_internal	(UpDevice	*device);

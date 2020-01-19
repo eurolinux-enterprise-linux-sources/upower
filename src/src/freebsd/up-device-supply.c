@@ -54,6 +54,7 @@ static gboolean		up_device_supply_battery_coldplug	(UpDevice *device, UpAcpiNati
 static gboolean		up_device_supply_acline_set_properties	(UpDevice *device);
 static gboolean		up_device_supply_battery_set_properties	(UpDevice *device, UpAcpiNative *native);
 static gboolean		up_device_supply_get_on_battery	(UpDevice *device, gboolean *on_battery);
+static gboolean		up_device_supply_get_low_battery	(UpDevice *device, gboolean *low_battery);
 static gboolean		up_device_supply_get_online		(UpDevice *device, gboolean *online);
 
 /**
@@ -382,6 +383,7 @@ static gboolean
 up_device_supply_refresh (UpDevice *device)
 {
 	GObject *object;
+	GTimeVal timeval;
 	UpDeviceKind type;
 	gboolean ret;
 
@@ -399,8 +401,10 @@ up_device_supply_refresh (UpDevice *device)
 			break;
 	}
 
-	if (ret)
-		g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
+	if (ret) {
+		g_get_current_time (&timeval);
+		g_object_set (device, "update-time", (guint64) timeval.tv_sec, NULL);
+	}
 
 	return ret;
 }
@@ -431,6 +435,32 @@ up_device_supply_get_on_battery (UpDevice *device, gboolean *on_battery)
 		return FALSE;
 
 	*on_battery = (state == UP_DEVICE_STATE_DISCHARGING);
+	return TRUE;
+}
+
+/**
+ * up_device_supply_get_low_battery:
+ **/
+static gboolean
+up_device_supply_get_low_battery (UpDevice *device, gboolean *low_battery)
+{
+	gboolean ret;
+	gboolean on_battery;
+	gdouble percentage;
+
+	g_return_val_if_fail (low_battery != NULL, FALSE);
+
+	ret = up_device_supply_get_on_battery (device, &on_battery);
+	if (!ret)
+		return FALSE;
+
+	if (!on_battery) {
+		*low_battery = FALSE;
+		return TRUE;
+	}
+
+	g_object_get (device, "percentage", &percentage, NULL);
+	*low_battery = (percentage < 10.0f);
 	return TRUE;
 }
 
@@ -467,6 +497,22 @@ up_device_supply_init (UpDeviceSupply *supply)
 }
 
 /**
+ * up_device_supply_finalize:
+ **/
+static void
+up_device_supply_finalize (GObject *object)
+{
+	UpDeviceSupply *supply;
+
+	g_return_if_fail (object != NULL);
+	g_return_if_fail (UP_IS_DEVICE_SUPPLY (object));
+
+	supply = UP_DEVICE_SUPPLY (object);
+
+	G_OBJECT_CLASS (up_device_supply_parent_class)->finalize (object);
+}
+
+/**
  * up_device_supply_class_init:
  **/
 static void
@@ -475,7 +521,9 @@ up_device_supply_class_init (UpDeviceSupplyClass *klass)
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	UpDeviceClass *device_class = UP_DEVICE_CLASS (klass);
 
+	object_class->finalize = up_device_supply_finalize;
 	device_class->get_on_battery = up_device_supply_get_on_battery;
+	device_class->get_low_battery = up_device_supply_get_low_battery;
 	device_class->get_online = up_device_supply_get_online;
 	device_class->coldplug = up_device_supply_coldplug;
 	device_class->refresh = up_device_supply_refresh;

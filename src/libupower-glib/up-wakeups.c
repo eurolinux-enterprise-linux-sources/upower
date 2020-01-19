@@ -23,10 +23,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <glib-object.h>
+#include <glib.h>
+#include <dbus/dbus-glib.h>
 
 #include "up-wakeups.h"
-#include "up-wakeups-glue.h"
 
 static void	up_wakeups_class_init	(UpWakeupsClass	*klass);
 static void	up_wakeups_init		(UpWakeups	*wakeups);
@@ -36,7 +36,11 @@ static void	up_wakeups_finalize	(GObject	*object);
 
 struct UpWakeupsPrivate
 {
-	UpWakeupsGlue		*proxy;
+	DBusGConnection		*bus;
+	DBusGProxy		*proxy;
+	DBusGProxy		*prop_proxy;
+	gboolean		 has_capability;
+	gboolean		 have_properties;
 };
 
 enum {
@@ -66,16 +70,26 @@ up_wakeups_get_total_sync (UpWakeups *wakeups, GCancellable *cancellable, GError
 {
 	guint total = 0;
 	gboolean ret;
+	GError *error_local = NULL;
 
 	g_return_val_if_fail (UP_IS_WAKEUPS (wakeups), FALSE);
 	g_return_val_if_fail (wakeups->priv->proxy != NULL, FALSE);
 
-	ret = up_wakeups_glue_call_get_total_sync (wakeups->priv->proxy, &total,
-						   cancellable, error);
-	if (!ret)
-		total = 0;
+	ret = dbus_g_proxy_call (wakeups->priv->proxy, "GetTotal", &error_local,
+				 G_TYPE_INVALID,
+				 G_TYPE_UINT, &total,
+				 G_TYPE_INVALID);
+	if (!ret) {
+		g_warning ("Couldn't get total: %s", error_local->message);
+		g_set_error (error, 1, 0, "%s", error_local->message);
+		g_error_free (error_local);
+	}
 	return total;
 }
+
+/* FIXME: GValueArray is deprecated in GLib 2.33+, but we need to convert to
+ * GDBus to get rid of it */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 /**
  * up_wakeups_get_data_sync:
@@ -85,7 +99,7 @@ up_wakeups_get_total_sync (UpWakeups *wakeups, GCancellable *cancellable, GError
  *
  * Gets the wakeups data from the daemon.
  *
- * Return value: (element-type UpWakeupItem) (transfer full): an array of %UpWakeupItem's
+ * Return value: (transfer full): an array of %UpWakeupItem's
  *
  * Since: 0.9.1
  **/
@@ -93,22 +107,32 @@ GPtrArray *
 up_wakeups_get_data_sync (UpWakeups *wakeups, GCancellable *cancellable, GError **error)
 {
 	GError *error_local = NULL;
-	GVariant *gva;
+	GType g_type_gvalue_array;
+	GPtrArray *gvalue_ptr_array = NULL;
+	GValueArray *gva;
+	GValue *gv;
 	guint i;
+	UpWakeupItem *item;
 	GPtrArray *array = NULL;
 	gboolean ret;
-	gsize len;
-	GVariantIter *iter;
 
 	g_return_val_if_fail (UP_IS_WAKEUPS (wakeups), NULL);
 	g_return_val_if_fail (wakeups->priv->proxy != NULL, NULL);
 
-	/* get compound data */
-	ret = up_wakeups_glue_call_get_data_sync (wakeups->priv->proxy,
-						  &gva,
-						  NULL,
-						  &error_local);
+	g_type_gvalue_array = dbus_g_type_get_collection ("GPtrArray",
+					dbus_g_type_get_struct("GValueArray",
+						G_TYPE_BOOLEAN,
+						G_TYPE_UINT,
+						G_TYPE_DOUBLE,
+						G_TYPE_STRING,
+						G_TYPE_STRING,
+						G_TYPE_INVALID));
 
+	/* get compound data */
+	ret = dbus_g_proxy_call (wakeups->priv->proxy, "GetData", &error_local,
+				 G_TYPE_INVALID,
+				 g_type_gvalue_array, &gvalue_ptr_array,
+				 G_TYPE_INVALID);
 	if (!ret) {
 		g_warning ("GetData on failed: %s", error_local->message);
 		g_set_error (error, 1, 0, "%s", error_local->message);
@@ -117,45 +141,93 @@ up_wakeups_get_data_sync (UpWakeups *wakeups, GCancellable *cancellable, GError 
 	}
 
 	/* no data */
-	iter = g_variant_iter_new (gva);
-	len = g_variant_iter_n_children (iter);
-	if (len == 0) {
-		g_variant_iter_free (iter);
+	if (gvalue_ptr_array->len == 0)
 		goto out;
-	}
 
 	/* convert */
 	array = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
-	for (i = 0; i < len; i++) {
-		UpWakeupItem *obj;
-		GVariant *v;
-		gboolean is_userspace;
-		guint32 id;
-		double value;
-		char *cmdline;
-		char *details;
+	for (i=0; i<gvalue_ptr_array->len; i++) {
+		gva = (GValueArray *) g_ptr_array_index (gvalue_ptr_array, i);
+		item = up_wakeup_item_new ();
 
-		v = g_variant_iter_next_value (iter);
-		g_variant_get (v, "(budss)",
-			       &is_userspace, &id, &value, &cmdline, &details);
-		g_variant_unref (v);
+		/* 0 */
+		gv = g_value_array_get_nth (gva, 0);
+		up_wakeup_item_set_is_userspace (item, g_value_get_boolean (gv));
+		g_value_unset (gv);
 
-		obj = up_wakeup_item_new ();
-		up_wakeup_item_set_is_userspace (obj, is_userspace);
-		up_wakeup_item_set_id (obj, id);
-		up_wakeup_item_set_value (obj, value);
-		up_wakeup_item_set_cmdline (obj, cmdline);
-		up_wakeup_item_set_details (obj, details);
-		g_free (cmdline);
-		g_free (details);
+		/* 1 */
+		gv = g_value_array_get_nth (gva, 1);
+		up_wakeup_item_set_id (item, g_value_get_uint (gv));
+		g_value_unset (gv);
 
-		g_ptr_array_add (array, obj);
+		/* 2 */
+		gv = g_value_array_get_nth (gva, 2);
+		up_wakeup_item_set_value (item, g_value_get_double (gv));
+		g_value_unset (gv);
+
+		/* 3 */
+		gv = g_value_array_get_nth (gva, 3);
+		up_wakeup_item_set_cmdline (item, g_value_get_string (gv));
+		g_value_unset (gv);
+
+		/* 4 */
+		gv = g_value_array_get_nth (gva, 4);
+		up_wakeup_item_set_details (item, g_value_get_string (gv));
+		g_value_unset (gv);
+
+		/* add */
+		g_ptr_array_add (array, item);
+		g_value_array_free (gva);
 	}
-	g_variant_iter_free (iter);
 out:
-	if (gva != NULL)
-		g_variant_unref (gva);
+	if (gvalue_ptr_array != NULL)
+		g_ptr_array_unref (gvalue_ptr_array);
 	return array;
+}
+
+#pragma GCC diagnostic error "-Wdeprecated-declarations"
+
+/**
+ * up_wakeups_ensure_properties:
+ **/
+static void
+up_wakeups_ensure_properties (UpWakeups *wakeups)
+{
+	gboolean ret;
+	GError *error;
+	GHashTable *props;
+	GValue *value;
+
+	props = NULL;
+
+	if (wakeups->priv->have_properties)
+		goto out;
+
+	error = NULL;
+	ret = dbus_g_proxy_call (wakeups->priv->prop_proxy, "GetAll", &error,
+				 G_TYPE_STRING, "org.freedesktop.UPower.Wakeups",
+				 G_TYPE_INVALID,
+				 dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE), &props,
+				 G_TYPE_INVALID);
+	if (!ret) {
+		g_warning ("Error invoking GetAll() to get properties: %s", error->message);
+		g_error_free (error);
+		goto out;
+	}
+
+	value = g_hash_table_lookup (props, "HasCapability");
+	if (value == NULL) {
+		g_warning ("No 'HasCapability' property");
+		goto out;
+	}
+	wakeups->priv->has_capability = g_value_get_boolean (value);
+
+	/* cached */
+	wakeups->priv->have_properties = TRUE;
+
+out:
+	if (props != NULL)
+		g_hash_table_unref (props);
 }
 
 /**
@@ -174,7 +246,7 @@ gboolean
 up_wakeups_get_properties_sync (UpWakeups *wakeups, GCancellable *cancellable, GError **error)
 {
 	g_return_val_if_fail (UP_IS_WAKEUPS (wakeups), FALSE);
-	/* Nothing to do here */
+	up_wakeups_ensure_properties (wakeups);
 	return TRUE;
 }
 
@@ -192,14 +264,15 @@ gboolean
 up_wakeups_get_has_capability (UpWakeups *wakeups)
 {
 	g_return_val_if_fail (UP_IS_WAKEUPS (wakeups), FALSE);
-	return up_wakeups_glue_get_has_capability (wakeups->priv->proxy);
+	up_wakeups_ensure_properties (wakeups);
+	return wakeups->priv->has_capability;
 }
 
 /**
  * up_wakeups_total_changed_cb:
  **/
 static void
-up_wakeups_total_changed_cb (UpWakeupsGlue *proxy, guint value, UpWakeups *wakeups)
+up_wakeups_total_changed_cb (DBusGProxy *proxy, guint value, UpWakeups *wakeups)
 {
 	g_signal_emit (wakeups, signals [UP_WAKEUPS_TOTAL_CHANGED], 0, value);
 }
@@ -208,7 +281,7 @@ up_wakeups_total_changed_cb (UpWakeupsGlue *proxy, guint value, UpWakeups *wakeu
  * up_wakeups_data_changed_cb:
  **/
 static void
-up_wakeups_data_changed_cb (UpWakeupsGlue *proxy, UpWakeups *wakeups)
+up_wakeups_data_changed_cb (DBusGProxy *proxy, UpWakeups *wakeups)
 {
 	g_signal_emit (wakeups, signals [UP_WAKEUPS_DATA_CHANGED], 0);
 }
@@ -247,25 +320,46 @@ up_wakeups_init (UpWakeups *wakeups)
 	GError *error = NULL;
 
 	wakeups->priv = UP_WAKEUPS_GET_PRIVATE (wakeups);
+	wakeups->priv->has_capability = FALSE;
+	wakeups->priv->have_properties = FALSE;
 
-	/* connect to main interface */
-	wakeups->priv->proxy = up_wakeups_glue_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
-								       G_DBUS_PROXY_FLAGS_NONE,
-								       "org.freedesktop.UPower",
-								       "/org/freedesktop/UPower/Wakeups",
-								       NULL,
-								       &error);
-	if (wakeups->priv->proxy == NULL) {
-		g_warning ("Couldn't connect to proxy: %s", error->message);
+	/* get on the bus */
+	wakeups->priv->bus = dbus_g_bus_get (DBUS_BUS_SYSTEM, &error);
+	if (wakeups->priv->bus == NULL) {
+		g_warning ("Couldn't connect to system bus: %s", error->message);
 		g_error_free (error);
-		return;
+		goto out;
 	}
 
+	/* connect to properties interface */
+	wakeups->priv->prop_proxy = dbus_g_proxy_new_for_name (wakeups->priv->bus,
+							      "org.freedesktop.UPower",
+							      "/org/freedesktop/UPower/Wakeups",
+							      "org.freedesktop.DBus.Properties");
+	if (wakeups->priv->prop_proxy == NULL) {
+		g_warning ("Couldn't connect to proxy");
+		goto out;
+	}
+
+	/* connect to main interface */
+	wakeups->priv->proxy = dbus_g_proxy_new_for_name (wakeups->priv->bus,
+							 "org.freedesktop.UPower",
+							 "/org/freedesktop/UPower/Wakeups",
+							 "org.freedesktop.UPower.Wakeups");
+	if (wakeups->priv->proxy == NULL) {
+		g_warning ("Couldn't connect to proxy");
+		goto out;
+	}
+	dbus_g_proxy_add_signal (wakeups->priv->proxy, "TotalChanged", G_TYPE_UINT, G_TYPE_INVALID);
+	dbus_g_proxy_add_signal (wakeups->priv->proxy, "DataChanged", G_TYPE_INVALID);
+
 	/* all callbacks */
-	g_signal_connect (wakeups->priv->proxy, "total-changed",
-			  G_CALLBACK (up_wakeups_total_changed_cb), wakeups);
-	g_signal_connect (wakeups->priv->proxy, "data-changed",
-			  G_CALLBACK (up_wakeups_data_changed_cb), wakeups);
+	dbus_g_proxy_connect_signal (wakeups->priv->proxy, "TotalChanged",
+				     G_CALLBACK (up_wakeups_total_changed_cb), wakeups, NULL);
+	dbus_g_proxy_connect_signal (wakeups->priv->proxy, "DataChanged",
+				     G_CALLBACK (up_wakeups_data_changed_cb), wakeups, NULL);
+out:
+	return;
 }
 
 /**
@@ -281,6 +375,8 @@ up_wakeups_finalize (GObject *object)
 	wakeups = UP_WAKEUPS (object);
 	if (wakeups->priv->proxy != NULL)
 		g_object_unref (wakeups->priv->proxy);
+	if (wakeups->priv->prop_proxy != NULL)
+		g_object_unref (wakeups->priv->prop_proxy);
 
 	G_OBJECT_CLASS (up_wakeups_parent_class)->finalize (object);
 }
@@ -297,6 +393,8 @@ up_wakeups_finalize (GObject *object)
 UpWakeups *
 up_wakeups_new (void)
 {
-	return UP_WAKEUPS (g_object_new (UP_TYPE_WAKEUPS, NULL));
+	UpWakeups *wakeups;
+	wakeups = g_object_new (UP_TYPE_WAKEUPS, NULL);
+	return UP_WAKEUPS (wakeups);
 }
 

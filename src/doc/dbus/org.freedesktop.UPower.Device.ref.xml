@@ -18,6 +18,11 @@ out'a(udu)'data)
 out'a(dd)'data)
 </synopsis>
   </refsynopsisdiv>
+  <refsect1 role="signal_proto">
+    <title role="signal_proto.title">Signals</title>
+    <synopsis><link linkend="Device::Changed">Changed</link>()
+</synopsis>
+  </refsect1>
   <refsect1 role="impl_interfaces">
     <title role="impl_interfaces.title">Implemented Interfaces</title>
     <para>
@@ -48,14 +53,14 @@ out'a(dd)'data)
 <link linkend="Device:TimeToEmpty">'TimeToEmpty'</link>read'x'
 <link linkend="Device:TimeToFull">'TimeToFull'</link>read'x'
 <link linkend="Device:Percentage">'Percentage'</link>read'd'
-<link linkend="Device:Temperature">'Temperature'</link>read'd'
 <link linkend="Device:IsPresent">'IsPresent'</link>read'b'
 <link linkend="Device:State">'State'</link>read'u'
 <link linkend="Device:IsRechargeable">'IsRechargeable'</link>read'b'
 <link linkend="Device:Capacity">'Capacity'</link>read'd'
 <link linkend="Device:Technology">'Technology'</link>read'u'
-<link linkend="Device:WarningLevel">'WarningLevel'</link>read'u'
-<link linkend="Device:IconName">'IconName'</link>read's'
+<link linkend="Device:RecallNotice">'RecallNotice'</link>read'b'
+<link linkend="Device:RecallVendor">'RecallVendor'</link>read's'
+<link linkend="Device:RecallUrl">'RecallUrl'</link>read's'
 </synopsis>
   </refsect1>
   <refsect1 role="desc">
@@ -234,6 +239,11 @@ out'a(dd)'data)</programlisting></refsect2>
                   The accuracy of the prediction in percent.
                 </listitem></itemizedlist></para>
         </simpara></listitem></varlistentry></variablelist></refsect1>
+  <refsect1 role="signals"><title role="signals.title">Signal Details</title><refsect2><title><anchor role="function" id="Device::Changed"/>The Changed signal</title><indexterm><primary>Changed</primary><secondary>Device</secondary></indexterm><programlisting>Changed ()</programlisting></refsect2>
+          <para>
+            Some value on the power source changed.
+          </para>
+        <variablelist role="params"/></refsect1>
   <refsect1 role="property_details"><title role="property_details.title">Property Details</title><refsect2><title><anchor role="function" id="Device:NativePath"/>The "NativePath" property</title><indexterm><primary>NativePath</primary><secondary>Device</secondary></indexterm><programlisting>'NativePath'read's'
 </programlisting></refsect2>
           <para>
@@ -393,14 +403,6 @@ out'a(dd)'data)</programlisting></refsect2>
             <link linkend="Source:Type"><literal>type</literal></link>
             has the value "battery".
           </para>
-        <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:Temperature"/>The "Temperature" property</title><indexterm><primary>Temperature</primary><secondary>Device</secondary></indexterm><programlisting>'Temperature'read'd'
-</programlisting></refsect2>
-          <para>
-            The temperature of the device in degrees Celsius. This property is
-            only valid if the property
-            <link linkend="Source:Type"><literal>type</literal></link>
-            has the value "battery".
-          </para>
         <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:IsPresent"/>The "IsPresent" property</title><indexterm><primary>IsPresent</primary><secondary>Device</secondary></indexterm><programlisting>'IsPresent'read'b'
 </programlisting></refsect2>
           <para>
@@ -459,16 +461,29 @@ out'a(dd)'data)</programlisting></refsect2>
             <link linkend="Source:Type"><literal>type</literal></link>
             has the value "battery".
           </para>
-        <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:WarningLevel"/>The "WarningLevel" property</title><indexterm><primary>WarningLevel</primary><secondary>Device</secondary></indexterm><programlisting>'WarningLevel'read'u'
+        <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:RecallNotice"/>The "RecallNotice" property</title><indexterm><primary>RecallNotice</primary><secondary>Device</secondary></indexterm><programlisting>'RecallNotice'read'b'
 </programlisting></refsect2>
           <para>
-            Warning level of the battery:
+            If the device may have been recalled by the vendor due to a suspected
+            fault.
+            This key does not imply the device is faulty, only that it approximatly
+            matches the description from the vendor of units that were recalled.
           </para>
-          <para><itemizedlist><listitem><emphasis role="bold">0: </emphasis>Unknown</listitem><listitem><emphasis role="bold">1: </emphasis>None</listitem><listitem><emphasis role="bold">2: </emphasis>Discharging (only for UPSes)</listitem><listitem><emphasis role="bold">3: </emphasis>Low</listitem><listitem><emphasis role="bold">4: </emphasis>Critical</listitem><listitem><emphasis role="bold">5: </emphasis>Action</listitem></itemizedlist></para>
-        <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:IconName"/>The "IconName" property</title><indexterm><primary>IconName</primary><secondary>Device</secondary></indexterm><programlisting>'IconName'read's'
+        <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:RecallVendor"/>The "RecallVendor" property</title><indexterm><primary>RecallVendor</primary><secondary>Device</secondary></indexterm><programlisting>'RecallVendor'read's'
 </programlisting></refsect2>
           <para>
-            An icon name, following the Icon Naming Specification
+            The vendor that is handling the hardware recall.
+          </para>
+          <para>
+            This property is only valid if the property recall-notice is true.
+          </para>
+        <variablelist role="params"/><refsect2><title><anchor role="function" id="Device:RecallUrl"/>The "RecallUrl" property</title><indexterm><primary>RecallUrl</primary><secondary>Device</secondary></indexterm><programlisting>'RecallUrl'read's'
+</programlisting></refsect2>
+          <para>
+            The URL to visit about the hardware recall.
+          </para>
+          <para>
+            This property is only valid if the property recall-notice is true.
           </para>
         <variablelist role="params"/></refsect1>
 </refentry>

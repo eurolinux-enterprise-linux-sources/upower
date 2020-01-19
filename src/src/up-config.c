@@ -55,32 +55,6 @@ up_config_get_boolean (UpConfig *config, const gchar *key)
 }
 
 /**
- * up_config_get_uint:
- **/
-guint
-up_config_get_uint (UpConfig *config, const gchar *key)
-{
-	int val;
-
-	val = g_key_file_get_integer (config->priv->keyfile,
-				      "UPower", key, NULL);
-	if (val < 0)
-		return 0;
-
-	return val;
-}
-
-/**
- * up_config_get_string:
- **/
-gchar *
-up_config_get_string (UpConfig *config, const gchar *key)
-{
-	return g_key_file_get_string (config->priv->keyfile,
-				      "UPower", key, NULL);
-}
-
-/**
  * up_config_class_init:
  **/
 static void

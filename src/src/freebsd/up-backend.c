@@ -44,6 +44,8 @@
 #include "up-device.h"
 
 #define UP_BACKEND_REFRESH_TIMEOUT	30	/* seconds */
+#define UP_BACKEND_SUSPEND_COMMAND	"/usr/sbin/zzz"
+#define UP_BACKEND_HIBERNATE_COMMAND	"/usr/sbin/acpiconf -s 4"
 
 static void	up_backend_class_init	(UpBackendClass	*klass);
 static void	up_backend_init	(UpBackend		*backend);
@@ -53,6 +55,7 @@ static gboolean	up_backend_refresh_devices (gpointer user_data);
 static gboolean	up_backend_acpi_devd_notify (UpBackend *backend, const gchar *system, const gchar *subsystem, const gchar *type, const gchar *data);
 static gboolean	up_backend_create_new_device (UpBackend *backend, UpAcpiNative *native);
 static void	up_backend_lid_coldplug (UpBackend *backend);
+static gboolean	up_backend_supports_sleep_state (const gchar *state);
 
 #define UP_BACKEND_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), UP_TYPE_BACKEND, UpBackendPrivate))
 
@@ -288,58 +291,70 @@ up_backend_coldplug (UpBackend *backend, UpDaemon *daemon)
 		g_timeout_add_seconds (UP_BACKEND_REFRESH_TIMEOUT,
 			       (GSourceFunc) up_backend_refresh_devices,
 			       backend);
-	g_source_set_name_by_id (backend->priv->poll_timer_id, "[upower] up_backend_refresh_devices (freebsd)");
+#if GLIB_CHECK_VERSION(2,25,8)
+	g_source_set_name_by_id (backend->priv->poll_timer_id, "[FreeBSD:UpBackend] poll");
+#endif
 
 	return TRUE;
 }
 
 /**
- * up_backend_unplug:
- * @backend: The %UpBackend class instance
- *
- * Forget about all learned devices, effectively undoing up_backend_coldplug.
- * Resources are released without emitting signals.
- */
-void
-up_backend_unplug (UpBackend *backend)
+ * up_backend_get_powersave_command:
+ **/
+const gchar *
+up_backend_get_powersave_command (UpBackend *backend, gboolean powersave)
 {
-	if (backend->priv->poll_timer_id > 0) {
-		g_source_remove (backend->priv->poll_timer_id);
-		backend->priv->poll_timer_id = 0;
-	}
-	if (backend->priv->device_list != NULL) {
-		g_object_unref (backend->priv->device_list);
-		backend->priv->device_list = NULL;
-	}
-	if (backend->priv->daemon != NULL) {
-		g_object_unref (backend->priv->daemon);
-		backend->priv->daemon = NULL;
-	}
+	/* XXX: Do we want to use powerd here? */
+	return NULL;
 }
 
 /**
- * up_backend_get_critical_action:
- * @backend: The %UpBackend class instance
- *
- * Which action will be taken when %UP_DEVICE_LEVEL_ACTION
- * warning-level occurs.
+ * up_backend_get_suspend_command:
  **/
-const char *
-up_backend_get_critical_action (UpBackend *backend)
+const gchar *
+up_backend_get_suspend_command (UpBackend *backend)
 {
-	return "PowerOff";
+	return UP_BACKEND_SUSPEND_COMMAND;
 }
 
 /**
- * up_backend_take_action:
- * @backend: The %UpBackend class instance
- *
- * Act upon the %UP_DEVICE_LEVEL_ACTION warning-level.
+ * up_backend_get_hibernate_command:
  **/
-void
-up_backend_take_action (UpBackend *backend)
+const gchar *
+up_backend_get_hibernate_command (UpBackend *backend)
 {
-	/* FIXME: Implement */
+	return UP_BACKEND_HIBERNATE_COMMAND;
+}
+
+gboolean
+up_backend_emits_resuming (UpBackend *backend)
+{
+	return FALSE;
+}
+
+/**
+ * up_backend_kernel_can_suspend:
+ **/
+gboolean
+up_backend_kernel_can_suspend (UpBackend *backend)
+{
+	return up_backend_supports_sleep_state ("S3");
+}
+
+/**
+ * up_backend_kernel_can_hibernate:
+ **/
+gboolean
+up_backend_kernel_can_hibernate (UpBackend *backend)
+{
+	return up_backend_supports_sleep_state ("S4");
+}
+
+gboolean
+up_backend_has_encrypted_swap (UpBackend *backend)
+{
+	/* XXX: Add support for GELI? */
+	return FALSE;
 }
 
 /* Return value: a percentage value */
@@ -378,6 +393,26 @@ out:
 }
 
 /**
+ * up_backend_supports_sleep_state:
+ **/
+static gboolean
+up_backend_supports_sleep_state (const gchar *state)
+{
+	gchar *sleep_states;
+	gboolean ret = FALSE;
+
+	sleep_states = up_get_string_sysctl (NULL, "hw.acpi.supported_sleep_state");
+	if (sleep_states != NULL) {
+		if (strstr (sleep_states, state) != NULL)
+			ret = TRUE;
+	}
+
+	g_free (sleep_states);
+
+	return ret;
+}
+
+/**
  * up_backend_class_init:
  * @klass: The UpBackendClass
  **/
@@ -410,7 +445,10 @@ static void
 up_backend_init (UpBackend *backend)
 {
 	backend->priv = UP_BACKEND_GET_PRIVATE (backend);
+	backend->priv->daemon = NULL;
+	backend->priv->device_list = NULL;
 	backend->priv->handle_map = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify) g_free, (GDestroyNotify) g_object_unref);
+	backend->priv->poll_timer_id = 0;
 }
 
 /**
@@ -445,6 +483,8 @@ up_backend_finalize (GObject *object)
 UpBackend *
 up_backend_new (void)
 {
-	return g_object_new (UP_TYPE_BACKEND, NULL);
+	UpBackend *backend;
+	backend = g_object_new (UP_TYPE_BACKEND, NULL);
+	return UP_BACKEND (backend);
 }
 

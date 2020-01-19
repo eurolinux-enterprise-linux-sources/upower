@@ -13,7 +13,7 @@ AM_CPPFLAGS = \
 	$(POLKIT_CFLAGS)					\
 	$(GLIB_CFLAGS)						\
 	$(IDEVICE_CFLAGS)					\
-	$(NULL)
+	$(SYSTEMD_CFLAGS)
 
 if BACKEND_TYPE_LINUX
 noinst_LTLIBRARIES = libupshared.la
@@ -38,6 +38,8 @@ libupshared_la_SOURCES =					\
 	up-device-wup.h						\
 	up-input.c						\
 	up-input.h						\
+	up-dock.c						\
+	up-dock.h						\
 	up-backend.c						\
 	up-native.c						\
 	hidpp-device.c						\
@@ -64,8 +66,6 @@ EXTRA_DIST = $(libupshared_la_SOURCES) 			\
 
 libupshared_la_CFLAGS =					\
 	$(WARNINGFLAGS_C)
-
-libupshared_la_LIBADD = $(GIO_LIBS)
 
 clean-local :
 	rm -f *~

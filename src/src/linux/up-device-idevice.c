@@ -41,10 +41,13 @@
 #include "up-types.h"
 #include "up-device-idevice.h"
 
+#define UP_DEVICE_IDEVICE_DEFAULT_POLL_TIME	60 /* seconds */
+
 struct UpDeviceIdevicePrivate
 {
 	idevice_t		 dev;
 	lockdownd_client_t	 client;
+	guint			 poll_timer_id;
 };
 
 G_DEFINE_TYPE (UpDeviceIdevice, up_device_idevice, UP_TYPE_DEVICE)
@@ -79,6 +82,8 @@ up_device_idevice_coldplug (UpDevice *device)
 	GUdevDevice *native;
 	const gchar *uuid;
 	const gchar *model;
+	plist_t dict, node;
+	guint64 poll_seconds = 0;
 	idevice_t dev = NULL;
 	lockdownd_client_t client = NULL;
 	UpDeviceKind kind;
@@ -99,6 +104,17 @@ up_device_idevice_coldplug (UpDevice *device)
 
 	if (LOCKDOWN_E_SUCCESS != lockdownd_client_new_with_handshake (dev, &client, "upower"))
 		goto out;
+
+	/* Get the poll timeout */
+	if (lockdownd_get_value (client, "com.apple.mobile.iTunes", "BatteryPollInterval", &dict) != LOCKDOWN_E_SUCCESS)
+		goto out;
+
+	node = plist_dict_get_item (dict, "BatteryPollInterval");
+	if (node != NULL)
+		plist_get_uint_val (node, &poll_seconds);
+	if (poll_seconds == 0)
+		poll_seconds = UP_DEVICE_IDEVICE_DEFAULT_POLL_TIME;
+	plist_free (dict);
 
 	/* Set up struct */
 	idevice->priv->dev = dev;
@@ -134,18 +150,19 @@ up_device_idevice_coldplug (UpDevice *device)
 	idevice->priv->client = NULL;
 
 	/* set up a poll */
-	up_daemon_start_poll (G_OBJECT (idevice), (GSourceFunc) up_device_idevice_poll_cb);
+	idevice->priv->poll_timer_id = g_timeout_add_seconds (poll_seconds,
+							      (GSourceFunc) up_device_idevice_poll_cb, idevice);
+
+#if GLIB_CHECK_VERSION(2,25,8)
+	g_source_set_name_by_id (idevice->priv->poll_timer_id, "[UpDeviceIdevice] poll");
+#endif
 	return TRUE;
 
 out:
-	if (client != NULL) {
+	if (client != NULL)
 		lockdownd_client_free (client);
-		idevice->priv->client = NULL;
-	}
-	if (dev != NULL) {
+	if (dev != NULL)
 		idevice_free (dev);
-		idevice->priv->dev = NULL;
-	}
 	return FALSE;
 }
 
@@ -157,6 +174,7 @@ out:
 static gboolean
 up_device_idevice_refresh (UpDevice *device)
 {
+	GTimeVal timeval;
 	UpDeviceIdevice *idevice = UP_DEVICE_IDEVICE (device);
 	lockdownd_client_t client = NULL;
 	plist_t dict, node;
@@ -204,7 +222,8 @@ up_device_idevice_refresh (UpDevice *device)
 	plist_free (dict);
 
 	/* reset time */
-	g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
+	g_get_current_time (&timeval);
+	g_object_set (device, "update-time", (guint64) timeval.tv_sec, NULL);
 
 	retval = TRUE;
 
@@ -239,11 +258,11 @@ up_device_idevice_finalize (GObject *object)
 	idevice = UP_DEVICE_IDEVICE (object);
 	g_return_if_fail (idevice->priv != NULL);
 
-	up_daemon_stop_poll (object);
+	if (idevice->priv->poll_timer_id > 0)
+		g_source_remove (idevice->priv->poll_timer_id);
 	if (idevice->priv->client != NULL)
 		lockdownd_client_free (idevice->priv->client);
-	if (idevice->priv->dev != NULL)
-		idevice_free (idevice->priv->dev);
+	idevice_free (idevice->priv->dev);
 
 	G_OBJECT_CLASS (up_device_idevice_parent_class)->finalize (object);
 }

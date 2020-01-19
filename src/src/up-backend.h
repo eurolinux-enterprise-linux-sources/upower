@@ -24,8 +24,6 @@
 
 #include <glib-object.h>
 
-#include "config.h"
-
 #include "up-types.h"
 #include "up-device.h"
 #include "up-daemon.h"
@@ -61,6 +59,9 @@ typedef struct
 	void		(* device_removed)	(UpBackend	*backend,
 						 GObject	*native,
 						 UpDevice	*device);
+#ifdef ENABLE_DEPRECATED
+	void		(* resuming)		(UpBackend	*backend);
+#endif
 } UpBackendClass;
 
 GType		 up_backend_get_type			(void);
@@ -69,9 +70,21 @@ void		 up_backend_test			(gpointer	 user_data);
 
 gboolean	 up_backend_coldplug			(UpBackend	*backend,
 							 UpDaemon	*daemon);
-void		 up_backend_unplug			(UpBackend	*backend);
-void		 up_backend_take_action			(UpBackend	*backend);
-const char	*up_backend_get_critical_action		(UpBackend	*backend);
+#ifdef ENABLE_DEPRECATED
+gboolean	 up_backend_kernel_can_suspend		(UpBackend	*backend);
+gboolean	 up_backend_kernel_can_hibernate	(UpBackend	*backend);
+gboolean	 up_backend_has_encrypted_swap		(UpBackend	*backend);
+gfloat		 up_backend_get_used_swap		(UpBackend	*backend);
+const gchar	*up_backend_get_suspend_command		(UpBackend	*backend);
+const gchar	*up_backend_get_hibernate_command	(UpBackend	*backend);
+#endif
+#ifdef ENABLE_DEPRECATED
+const gchar	*up_backend_get_powersave_command	(UpBackend	*backend,
+							 gboolean	 powersave);
+#endif
+#ifdef ENABLE_DEPRECATED
+gboolean	 up_backend_emits_resuming		(UpBackend	*backend);
+#endif
 
 G_END_DECLS
 

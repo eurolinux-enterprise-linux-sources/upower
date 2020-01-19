@@ -193,8 +193,7 @@ up_kbd_backlight_find (UpKbdBacklight *kbd_backlight)
 	/* open directory */
 	dir = g_dir_open ("/sys/class/leds", 0, &error);
 	if (dir == NULL) {
-		if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
-			g_warning ("failed to open directory: %s", error->message);
+		g_warning ("failed to get directory: %s", error->message);
 		g_error_free (error);
 		goto out;
 	}
@@ -301,8 +300,7 @@ up_kbd_backlight_finalize (GObject *object)
 	kbd_backlight->priv = UP_KBD_BACKLIGHT_GET_PRIVATE (kbd_backlight);
 
 	/* close file */
-	if (kbd_backlight->priv->fd >= 0)
-		close (kbd_backlight->priv->fd);
+	close (kbd_backlight->priv->fd);
 
 	G_OBJECT_CLASS (up_kbd_backlight_parent_class)->finalize (object);
 }
@@ -313,6 +311,8 @@ up_kbd_backlight_finalize (GObject *object)
 UpKbdBacklight *
 up_kbd_backlight_new (void)
 {
-	return g_object_new (UP_TYPE_KBD_BACKLIGHT, NULL);
+	UpKbdBacklight *kbd_backlight;
+	kbd_backlight = g_object_new (UP_TYPE_KBD_BACKLIGHT, NULL);
+	return UP_KBD_BACKLIGHT (kbd_backlight);
 }
 

@@ -333,6 +333,9 @@ static void
 up_history_item_init (UpHistoryItem *history_item)
 {
 	history_item->priv = UP_HISTORY_ITEM_GET_PRIVATE (history_item);
+	history_item->priv->value = 0.0f;
+	history_item->priv->time = 0;
+	history_item->priv->state = UP_DEVICE_STATE_UNKNOWN;
 }
 
 /**
@@ -355,6 +358,8 @@ up_history_item_finalize (GObject *object)
 UpHistoryItem *
 up_history_item_new (void)
 {
-	return UP_HISTORY_ITEM (g_object_new (UP_TYPE_HISTORY_ITEM, NULL));
+	UpHistoryItem *history_item;
+	history_item = g_object_new (UP_TYPE_HISTORY_ITEM, NULL);
+	return UP_HISTORY_ITEM (history_item);
 }
 

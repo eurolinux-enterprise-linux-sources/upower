@@ -59,6 +59,50 @@ G_BEGIN_DECLS
 #define dbus_glib_marshal_up_daemon_VOID__POINTER	g_cclosure_marshal_VOID__POINTER
 #define dbus_glib_marshal_up_daemon_NONE__POINTER	dbus_glib_marshal_up_daemon_VOID__POINTER
 
+/* NONE:STRING,POINTER */
+extern void dbus_glib_marshal_up_daemon_VOID__STRING_POINTER (GClosure     *closure,
+                                                              GValue       *return_value,
+                                                              guint         n_param_values,
+                                                              const GValue *param_values,
+                                                              gpointer      invocation_hint,
+                                                              gpointer      marshal_data);
+void
+dbus_glib_marshal_up_daemon_VOID__STRING_POINTER (GClosure     *closure,
+                                                  GValue       *return_value G_GNUC_UNUSED,
+                                                  guint         n_param_values,
+                                                  const GValue *param_values,
+                                                  gpointer      invocation_hint G_GNUC_UNUSED,
+                                                  gpointer      marshal_data)
+{
+  typedef void (*GMarshalFunc_VOID__STRING_POINTER) (gpointer     data1,
+                                                     gpointer     arg_1,
+                                                     gpointer     arg_2,
+                                                     gpointer     data2);
+  register GMarshalFunc_VOID__STRING_POINTER callback;
+  register GCClosure *cc = (GCClosure*) closure;
+  register gpointer data1, data2;
+
+  g_return_if_fail (n_param_values == 3);
+
+  if (G_CCLOSURE_SWAP_DATA (closure))
+    {
+      data1 = closure->data;
+      data2 = g_value_peek_pointer (param_values + 0);
+    }
+  else
+    {
+      data1 = g_value_peek_pointer (param_values + 0);
+      data2 = closure->data;
+    }
+  callback = (GMarshalFunc_VOID__STRING_POINTER) (marshal_data ? marshal_data : cc->callback);
+
+  callback (data1,
+            g_marshal_value_peek_string (param_values + 1),
+            g_marshal_value_peek_pointer (param_values + 2),
+            data2);
+}
+#define dbus_glib_marshal_up_daemon_NONE__STRING_POINTER	dbus_glib_marshal_up_daemon_VOID__STRING_POINTER
+
 G_END_DECLS
 
 #endif /* __dbus_glib_marshal_up_daemon_MARSHAL_H__ */
@@ -66,15 +110,18 @@ G_END_DECLS
 #include <dbus/dbus-glib.h>
 static const DBusGMethodInfo dbus_glib_up_daemon_methods[] = {
   { (GCallback) up_daemon_enumerate_devices, dbus_glib_marshal_up_daemon_NONE__POINTER, 0 },
-  { (GCallback) up_daemon_get_display_device, dbus_glib_marshal_up_daemon_NONE__POINTER, 60 },
-  { (GCallback) up_daemon_get_critical_action, dbus_glib_marshal_up_daemon_NONE__POINTER, 118 },
+  { (GCallback) up_daemon_about_to_sleep, dbus_glib_marshal_up_daemon_NONE__STRING_POINTER, 60 },
+  { (GCallback) up_daemon_suspend, dbus_glib_marshal_up_daemon_NONE__POINTER, 110 },
+  { (GCallback) up_daemon_suspend_allowed, dbus_glib_marshal_up_daemon_NONE__POINTER, 144 },
+  { (GCallback) up_daemon_hibernate, dbus_glib_marshal_up_daemon_NONE__POINTER, 201 },
+  { (GCallback) up_daemon_hibernate_allowed, dbus_glib_marshal_up_daemon_NONE__POINTER, 237 },
 };
 
 const DBusGObjectInfo dbus_glib_up_daemon_object_info = {  1,
   dbus_glib_up_daemon_methods,
-  3,
-"org.freedesktop.UPower\0EnumerateDevices\0A\0devices\0O\0F\0N\0ao\0\0org.freedesktop.UPower\0GetDisplayDevice\0A\0device\0O\0F\0N\0o\0\0org.freedesktop.UPower\0GetCriticalAction\0A\0action\0O\0F\0N\0s\0\0\0",
-"org.freedesktop.UPower\0DeviceAdded\0org.freedesktop.UPower\0DeviceRemoved\0\0",
-"org.freedesktop.UPower\0DaemonVersion\0daemon_version\0read\0org.freedesktop.UPower\0OnBattery\0on_battery\0read\0org.freedesktop.UPower\0LidIsClosed\0lid_is_closed\0read\0org.freedesktop.UPower\0LidIsPresent\0lid_is_present\0read\0\0"
+  6,
+"org.freedesktop.UPower\0EnumerateDevices\0A\0devices\0O\0F\0N\0ao\0\0org.freedesktop.UPower\0AboutToSleep\0A\0action\0I\0s\0\0org.freedesktop.UPower\0Suspend\0A\0\0org.freedesktop.UPower\0SuspendAllowed\0A\0allowed\0O\0F\0N\0b\0\0org.freedesktop.UPower\0Hibernate\0A\0\0org.freedesktop.UPower\0HibernateAllowed\0A\0allowed\0O\0F\0N\0b\0\0\0",
+"org.freedesktop.UPower\0DeviceAdded\0org.freedesktop.UPower\0DeviceRemoved\0org.freedesktop.UPower\0DeviceChanged\0org.freedesktop.UPower\0Changed\0org.freedesktop.UPower\0Sleeping\0org.freedesktop.UPower\0NotifySleep\0org.freedesktop.UPower\0Resuming\0org.freedesktop.UPower\0NotifyResume\0\0",
+"org.freedesktop.UPower\0DaemonVersion\0daemon_version\0read\0org.freedesktop.UPower\0CanSuspend\0can_suspend\0read\0org.freedesktop.UPower\0CanHibernate\0can_hibernate\0read\0org.freedesktop.UPower\0OnBattery\0on_battery\0read\0org.freedesktop.UPower\0OnLowBattery\0on_low_battery\0read\0org.freedesktop.UPower\0LidIsClosed\0lid_is_closed\0read\0org.freedesktop.UPower\0LidIsPresent\0lid_is_present\0read\0org.freedesktop.UPower\0LidForceSleep\0lid_force_sleep\0read\0org.freedesktop.UPower\0IsDocked\0is_docked\0read\0\0"
 };
 

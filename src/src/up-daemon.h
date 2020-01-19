@@ -22,6 +22,7 @@
 #define __UP_DAEMON_H__
 
 #include <glib-object.h>
+#include <polkit/polkit.h>
 #include <dbus/dbus-glib.h>
 
 #include "up-types.h"
@@ -72,36 +73,42 @@ guint		 up_daemon_get_number_devices_of_type (UpDaemon	*daemon,
 						 UpDeviceKind		 type);
 UpDeviceList	*up_daemon_get_device_list	(UpDaemon		*daemon);
 gboolean	 up_daemon_startup		(UpDaemon		*daemon);
-void		 up_daemon_shutdown		(UpDaemon		*daemon);
 void		 up_daemon_set_lid_is_closed	(UpDaemon		*daemon,
 						 gboolean		 lid_is_closed);
 void		 up_daemon_set_lid_is_present	(UpDaemon		*daemon,
 						 gboolean		 lid_is_present);
+void		 up_daemon_set_lid_force_sleep	(UpDaemon		*daemon,
+						 gboolean		 lid_force_sleep);
+void		 up_daemon_set_is_docked	(UpDaemon		*daemon,
+						 gboolean		 is_docked);
 void		 up_daemon_set_on_battery	(UpDaemon		*daemon,
 						 gboolean		 on_battery);
-void		 up_daemon_set_warning_level	(UpDaemon		*daemon,
-						 UpDeviceLevel		 warning_level);
-UpDeviceLevel	 up_daemon_compute_warning_level(UpDaemon		*daemon,
-						 UpDeviceState		 state,
-						 UpDeviceKind		 kind,
-						 gboolean		 power_supply,
-						 gdouble		 percentage,
-						 gint64			 time_to_empty);
-void		 up_daemon_emit_properties_changed (DBusGConnection	*gconnection,
-						    const gchar		*object_path,
-						    const gchar		*interface,
-						    GHashTable		*props);
-
-void		 up_daemon_start_poll		(GObject		*object,
-						 GSourceFunc		 callback);
-void		 up_daemon_stop_poll		(GObject		*object);
+void		 up_daemon_set_on_low_battery	(UpDaemon		*daemon,
+						 gboolean		 on_low_battery);
 
 /* exported */
 gboolean	 up_daemon_enumerate_devices	(UpDaemon		*daemon,
 						 DBusGMethodInvocation	*context);
-gboolean	 up_daemon_get_display_device   (UpDaemon		*daemon,
+gboolean	 up_daemon_get_on_battery	(UpDaemon		*daemon,
 						 DBusGMethodInvocation	*context);
-gboolean	 up_daemon_get_critical_action	(UpDaemon		*daemon,
+gboolean	 up_daemon_get_low_battery	(UpDaemon		*daemon,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_suspend		(UpDaemon		*daemon,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_about_to_sleep	(UpDaemon		*daemon,
+						 const gchar		*sleep_kind,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_suspend_allowed	(UpDaemon		*daemon,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_hibernate		(UpDaemon		*daemon,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_hibernate_allowed	(UpDaemon		*daemon,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_can_suspend		(UpDaemon		*daemon,
+						 gboolean		 interactive,
+						 DBusGMethodInvocation	*context);
+gboolean	 up_daemon_can_hibernate	(UpDaemon		*daemon,
+						 gboolean		 interactive,
 						 DBusGMethodInvocation	*context);
 
 G_END_DECLS

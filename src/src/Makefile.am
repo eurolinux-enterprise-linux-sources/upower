@@ -3,7 +3,6 @@
 SUBDIRS = dummy freebsd linux openbsd
 
 AM_CPPFLAGS = \
-	$(PIE_CFLAGS)						\
 	-I$(top_builddir)/src -I$(top_srcdir)/src		\
 	-DPACKAGE_LIBEXEC_DIR=\""$(libexecdir)"\"		\
 	-DPACKAGE_SYSCONF_DIR=\""$(sysconfdir)"\"		\
@@ -15,12 +14,14 @@ AM_CPPFLAGS = \
 	-DHISTORY_DIR=\""$(historydir)"\"			\
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT			\
 	-DUP_COMPILATION					\
+	-DUP_DISABLE_DEPRECATED					\
 	-DG_LOG_DOMAIN=\"UPower\"				\
 	-I$(top_srcdir)/libupower-glib				\
 	-I$(top_srcdir)						\
 	$(GIO_CFLAGS)						\
 	$(DBUS_GLIB_CFLAGS)					\
 	$(GUDEV_CFLAGS)						\
+	$(POLKIT_CFLAGS)					\
 	$(GLIB_CFLAGS)
 
 UPOWER_LIBS = $(top_builddir)/libupower-glib/libupower-glib.la
@@ -28,6 +29,7 @@ UPOWER_LIBS = $(top_builddir)/libupower-glib/libupower-glib.la
 BUILT_SOURCES =							\
 	up-daemon-glue.h					\
 	up-device-glue.h					\
+	up-qos-glue.h						\
 	up-kbd-backlight-glue.h					\
 	up-wakeups-glue.h					\
 	up-marshal.h						\
@@ -45,6 +47,9 @@ up-daemon-glue.h: org.freedesktop.UPower.xml Makefile.am
 up-device-glue.h: org.freedesktop.UPower.Device.xml Makefile.am
 	dbus-binding-tool --prefix=up_device --mode=glib-server --output=up-device-glue.h $(srcdir)/org.freedesktop.UPower.Device.xml
 
+up-qos-glue.h: org.freedesktop.UPower.QoS.xml Makefile.am
+	dbus-binding-tool --prefix=up_qos --mode=glib-server --output=up-qos-glue.h $(srcdir)/org.freedesktop.UPower.QoS.xml
+
 up-kbd-backlight-glue.h: org.freedesktop.UPower.KbdBacklight.xml Makefile.am
 	dbus-binding-tool --prefix=up_kbd_backlight --mode=glib-server --output=up-kbd-backlight-glue.h $(srcdir)/org.freedesktop.UPower.KbdBacklight.xml
 
@@ -57,16 +62,21 @@ dbusifdir = $(datadir)/dbus-1/interfaces
 dbusif_DATA =							\
 	org.freedesktop.UPower.xml				\
 	org.freedesktop.UPower.Device.xml			\
+	org.freedesktop.UPower.QoS.xml				\
 	org.freedesktop.UPower.KbdBacklight.xml			\
 	org.freedesktop.UPower.Wakeups.xml
 
 upowerd_SOURCES =						\
+	up-polkit.h						\
+	up-polkit.c						\
 	up-daemon.h						\
 	up-daemon.c						\
 	up-device.h						\
 	up-device.c						\
 	up-device-list.h					\
 	up-device-list.c					\
+	up-qos.h						\
+	up-qos.c						\
 	up-config.h						\
 	up-config.c						\
 	up-kbd-backlight.h					\
@@ -89,6 +99,7 @@ upowerd_LDADD =							\
 	$(USB_LIBS)						\
 	$(GIO_LIBS)						\
 	$(DBUS_GLIB_LIBS)					\
+	$(POLKIT_LIBS)						\
 	$(UPOWER_LIBS)
 
 if BACKEND_TYPE_DUMMY
@@ -112,15 +123,16 @@ upowerd_LDADD += 						\
 	$(USB_LIBS)						\
 	$(GUDEV_LIBS)						\
 	$(IDEVICE_LIBS)						\
-	$(NULL)
+	$(SYSTEMD_LIBS)
 
-upowerd_LDFLAGS =						\
-	$(PIE_LDFLAGS)						\
-	$(RELRO_LDFLAGS)
+if HAVE_SYSTEMDUTILDIR
+systemsleepdir = $(systemdutildir)/system-sleep
+systemsleep_SCRIPTS = notify-upower.sh
+endif
 
 if UP_BUILD_TESTS
 check-local: upowerd
-	env GI_TYPELIB_PATH=$(top_builddir)/libupower-glib:$(GI_TYPELIB_PATH) LD_LIBRARY_PATH=$(top_builddir)/libupower-glib/.libs:$(LD_LIBRARY_PATH) top_builddir=$(top_builddir) $(srcdir)/linux/integration-test -v
+	env top_builddir=$(top_builddir) $(srcdir)/linux/integration-test -v
 endif
 
 endif
@@ -136,6 +148,8 @@ check_PROGRAMS =						\
 
 up_self_test_SOURCES =						\
 	up-self-test.c						\
+	up-polkit.h						\
+	up-polkit.c						\
 	up-config.h						\
 	up-config.c						\
 	up-daemon.h						\
@@ -144,6 +158,8 @@ up_self_test_SOURCES =						\
 	up-device.c						\
 	up-device-list.h					\
 	up-device-list.c					\
+	up-qos.h						\
+	up-qos.c						\
 	up-kbd-backlight.h					\
 	up-kbd-backlight.c					\
 	up-wakeups.h						\
@@ -202,20 +218,21 @@ CLEANFILES = $(BUILT_SOURCES)
 
 MAINTAINERCLEANFILES =						\
 	$(dbusconf_DATA)					\
-	$(systemdservice_DATA)					\
 	$(dbusservice_DATA)
 
 EXTRA_DIST =							\
 	org.freedesktop.UPower.xml				\
 	org.freedesktop.UPower.Device.xml			\
+	org.freedesktop.UPower.QoS.xml				\
 	org.freedesktop.UPower.KbdBacklight.xml			\
 	org.freedesktop.UPower.Wakeups.xml			\
 	up-marshal.list						\
+	$(systemsleep_SCRIPTS)					\
 	$(systemdservice_in_files)				\
 	$(dbusservice_in_files)					\
 	$(dbusconf_in_files)
 
-if HAVE_SYSTEMDSYSTEMUNITDIR
+if HAVE_SYSTEMD
 EXTRA_DIST += $(systemdservice_in_files)
 endif
 
