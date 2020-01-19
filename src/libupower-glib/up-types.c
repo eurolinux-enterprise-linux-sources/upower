@@ -47,46 +47,33 @@
 const gchar *
 up_device_kind_to_string (UpDeviceKind type_enum)
 {
-	const gchar *type = NULL;
 	switch (type_enum) {
 	case UP_DEVICE_KIND_LINE_POWER:
-		type = "line-power";
-		break;
+		return "line-power";
 	case UP_DEVICE_KIND_BATTERY:
-		type = "battery";
-		break;
+		return "battery";
 	case UP_DEVICE_KIND_UPS:
-		type = "ups";
-		break;
+		return "ups";
 	case UP_DEVICE_KIND_MONITOR:
-		type = "monitor";
-		break;
+		return "monitor";
 	case UP_DEVICE_KIND_MOUSE:
-		type = "mouse";
-		break;
+		return "mouse";
 	case UP_DEVICE_KIND_KEYBOARD:
-		type = "keyboard";
-		break;
+		return "keyboard";
 	case UP_DEVICE_KIND_PDA:
-		type = "pda";
-		break;
+		return "pda";
 	case UP_DEVICE_KIND_PHONE:
-		type = "phone";
-		break;
+		return "phone";
 	case UP_DEVICE_KIND_MEDIA_PLAYER:
-		type = "media-player";
-		break;
+		return "media-player";
 	case UP_DEVICE_KIND_TABLET:
-		type = "tablet";
-		break;
+		return "tablet";
 	case UP_DEVICE_KIND_COMPUTER:
-		type = "computer";
-		break;
+		return "computer";
 	default:
-		type = "unknown";
-		break;
+		return "unknown";
 	}
-	return type;
+	g_assert_not_reached ();
 }
 
 /**
@@ -138,31 +125,23 @@ up_device_kind_from_string (const gchar *type)
 const gchar *
 up_device_state_to_string (UpDeviceState state_enum)
 {
-	const gchar *state = NULL;
 	switch (state_enum) {
 	case UP_DEVICE_STATE_CHARGING:
-		state = "charging";
-		break;
+		return "charging";
 	case UP_DEVICE_STATE_DISCHARGING:
-		state = "discharging";
-		break;
+		return "discharging";
 	case UP_DEVICE_STATE_EMPTY:
-		state = "empty";
-		break;
+		return "empty";
 	case UP_DEVICE_STATE_FULLY_CHARGED:
-		state = "fully-charged";
-		break;
+		return "fully-charged";
 	case UP_DEVICE_STATE_PENDING_CHARGE:
-		state = "pending-charge";
-		break;
+		return "pending-charge";
 	case UP_DEVICE_STATE_PENDING_DISCHARGE:
-		state = "pending-discharge";
-		break;
+		return "pending-discharge";
 	default:
-		state = "unknown";
-		break;
+		return "unknown";
 	}
-	return state;
+	g_assert_not_reached ();
 }
 
 /**
@@ -206,31 +185,23 @@ up_device_state_from_string (const gchar *state)
 const gchar *
 up_device_technology_to_string (UpDeviceTechnology technology_enum)
 {
-	const gchar *technology = NULL;
 	switch (technology_enum) {
 	case UP_DEVICE_TECHNOLOGY_LITHIUM_ION:
-		technology = "lithium-ion";
-		break;
+		return "lithium-ion";
 	case UP_DEVICE_TECHNOLOGY_LITHIUM_POLYMER:
-		technology = "lithium-polymer";
-		break;
+		return "lithium-polymer";
 	case UP_DEVICE_TECHNOLOGY_LITHIUM_IRON_PHOSPHATE:
-		technology = "lithium-iron-phosphate";
-		break;
+		return "lithium-iron-phosphate";
 	case UP_DEVICE_TECHNOLOGY_LEAD_ACID:
-		technology = "lead-acid";
-		break;
+		return "lead-acid";
 	case UP_DEVICE_TECHNOLOGY_NICKEL_CADMIUM:
-		technology = "nickel-cadmium";
-		break;
+		return "nickel-cadmium";
 	case UP_DEVICE_TECHNOLOGY_NICKEL_METAL_HYDRIDE:
-		technology = "nickel-metal-hydride";
-		break;
+		return "nickel-metal-hydride";
 	default:
-		technology = "unknown";
-		break;
+		return "unknown";
 	}
-	return technology;
+	g_assert_not_reached ();
 }
 
 /**
@@ -263,92 +234,61 @@ up_device_technology_from_string (const gchar *technology)
 }
 
 /**
- * up_qos_kind_to_string:
+ * up_device_level_to_string:
  *
- * Converts a #UpQosKind to a string.
- *
- * Return value: identifier string
- *
- * Since: 0.9.0
- **/
-const gchar *
-up_qos_kind_to_string (UpQosKind type)
-{
-	if (type == UP_QOS_KIND_NETWORK)
-		return "network";
-	if (type == UP_QOS_KIND_CPU_DMA)
-		return "cpu_dma";
-	return NULL;
-}
-
-/**
- * up_qos_kind_from_string:
- *
- * Converts a string to a #UpQosKind.
- *
- * Return value: enumerated value
- *
- * Since: 0.9.0
- **/
-UpQosKind
-up_qos_kind_from_string (const gchar *type)
-{
-	if (g_strcmp0 (type, "network") == 0)
-		return UP_QOS_KIND_NETWORK;
-	if (g_strcmp0 (type, "cpu_dma") == 0)
-		return UP_QOS_KIND_CPU_DMA;
-	return UP_QOS_KIND_UNKNOWN;
-}
-
-/**
- * up_sleep_kind_to_string:
- *
- * Converts a #UpSleepKind to a string.
+ * Converts a #UpDeviceLevel to a string.
  *
  * Return value: identifier string
  *
- * Since: 0.9.10
+ * Since: 1.0
  **/
 const gchar *
-up_sleep_kind_to_string (UpSleepKind sleep_kind_enum)
+up_device_level_to_string (UpDeviceLevel level_enum)
 {
-	const gchar *sleep_kind = NULL;
-	switch (sleep_kind_enum) {
-	case UP_SLEEP_KIND_SUSPEND:
-		sleep_kind = "suspend";
-		break;
-	case UP_SLEEP_KIND_HIBERNATE:
-		sleep_kind = "hibernate";
-		break;
-	case UP_SLEEP_KIND_HYBRID:
-		sleep_kind = "hybrid";
-		break;
+	switch (level_enum) {
+	case UP_DEVICE_LEVEL_UNKNOWN:
+		return "unknown";
+	case UP_DEVICE_LEVEL_NONE:
+		return "none";
+	case UP_DEVICE_LEVEL_DISCHARGING:
+		return "discharging";
+	case UP_DEVICE_LEVEL_LOW:
+		return "low";
+	case UP_DEVICE_LEVEL_CRITICAL:
+		return "critical";
+	case UP_DEVICE_LEVEL_ACTION:
+		return "action";
 	default:
-		sleep_kind = "unknown";
-		break;
+		return "unknown";
 	}
-	return sleep_kind;
+	g_assert_not_reached ();
 }
 
 /**
- * up_sleep_kind_from_string:
+ * up_device_level_from_string:
  *
- * Converts a string to a #UpSleepKind.
+ * Converts a string to a #UpDeviceLevel.
  *
  * Return value: enumerated value
  *
- * Since: 0.9.10
+ * Since: 1.0
  **/
-UpSleepKind
-up_sleep_kind_from_string (const gchar *sleep_kind)
+UpDeviceLevel
+up_device_level_from_string (const gchar *level)
 {
-	if (sleep_kind == NULL)
-		return UP_SLEEP_KIND_UNKNOWN;
-	if (g_strcmp0 (sleep_kind, "suspend") == 0)
-		return UP_SLEEP_KIND_SUSPEND;
-	if (g_strcmp0 (sleep_kind, "hibernate") == 0)
-		return UP_SLEEP_KIND_HIBERNATE;
-	if (g_strcmp0 (sleep_kind, "hybrid") == 0)
-		return UP_SLEEP_KIND_HYBRID;
-	return UP_SLEEP_KIND_UNKNOWN;
+	if (level == NULL)
+		return UP_DEVICE_LEVEL_UNKNOWN;
+	if (g_strcmp0 (level, "unknown") == 0)
+		return UP_DEVICE_LEVEL_UNKNOWN;
+	if (g_strcmp0 (level, "none") == 0)
+		return UP_DEVICE_LEVEL_NONE;
+	if (g_strcmp0 (level, "discharging") == 0)
+		return UP_DEVICE_LEVEL_DISCHARGING;
+	if (g_strcmp0 (level, "low") == 0)
+		return UP_DEVICE_LEVEL_LOW;
+	if (g_strcmp0 (level, "critical") == 0)
+		return UP_DEVICE_LEVEL_CRITICAL;
+	if (g_strcmp0 (level, "action") == 0)
+		return UP_DEVICE_LEVEL_ACTION;
+	return UP_DEVICE_LEVEL_UNKNOWN;
 }

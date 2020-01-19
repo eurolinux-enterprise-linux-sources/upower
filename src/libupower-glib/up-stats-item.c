@@ -206,8 +206,6 @@ static void
 up_stats_item_init (UpStatsItem *stats_item)
 {
 	stats_item->priv = UP_STATS_ITEM_GET_PRIVATE (stats_item);
-	stats_item->priv->value = 0.0f;
-	stats_item->priv->accuracy = 0.0f;
 }
 
 /**
@@ -231,8 +229,6 @@ up_stats_item_finalize (GObject *object)
 UpStatsItem *
 up_stats_item_new (void)
 {
-	UpStatsItem *stats_item;
-	stats_item = g_object_new (UP_TYPE_STATS_ITEM, NULL);
-	return UP_STATS_ITEM (stats_item);
+	return UP_STATS_ITEM (g_object_new (UP_TYPE_STATS_ITEM, NULL));
 }
 

@@ -2,36 +2,29 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>org.freedesktop.UPower</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.77.1">
+<title>org.freedesktop.UPower: UPower Reference Manual</title>
+<meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
 <link rel="home" href="index.html" title="UPower Reference Manual">
 <link rel="up" href="ref-dbus.html" title="D-Bus API Reference">
 <link rel="prev" href="ref-dbus.html" title="D-Bus API Reference">
 <link rel="next" href="Device.html" title="org.freedesktop.UPower.Device">
-<meta name="generator" content="GTK-Doc V1.18 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.24 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
-<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2">
-<tr valign="middle">
-<td><a accesskey="p" href="ref-dbus.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td>
-<td><a accesskey="u" href="ref-dbus.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td>
-<td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td>
-<th width="100%" align="center">UPower Reference Manual</th>
-<td><a accesskey="n" href="Device.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td>
-</tr>
-<tr><td colspan="5" class="shortcuts">
-<a href="#UPower.synopsis" class="shortcut">Top</a>
-                   | 
-                  <a href="#UPower.description" class="shortcut">Description</a>
-                   | 
-                  <a href="#UPower.implemented-interfaces" class="shortcut">Implemented Interfaces</a>
-                   | 
-                  <a href="#UPower.properties" class="shortcut">Properties</a>
-                   | 
-                  <a href="#UPower.signals" class="shortcut">Signals</a>
-</td></tr>
-</table>
+<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="5"><tr valign="middle">
+<td width="100%" align="left" class="shortcuts">
+<a href="#" class="shortcut">Top</a><span id="nav_description">  <span class="dim">|</span> 
+                  <a href="#UPower.description" class="shortcut">Description</a></span><span id="nav_interfaces">  <span class="dim">|</span> 
+                  <a href="#UPower.implemented-interfaces" class="shortcut">Implemented Interfaces</a></span><span id="nav_properties">  <span class="dim">|</span> 
+                  <a href="#UPower.properties" class="shortcut">Properties</a></span><span id="nav_signals">  <span class="dim">|</span> 
+                  <a href="#UPower.signals" class="shortcut">Signals</a></span>
+</td>
+<td><a accesskey="h" href="index.html"><img src="home.png" width="16" height="16" border="0" alt="Home"></a></td>
+<td><a accesskey="u" href="ref-dbus.html"><img src="up.png" width="16" height="16" border="0" alt="Up"></a></td>
+<td><a accesskey="p" href="ref-dbus.html"><img src="left.png" width="16" height="16" border="0" alt="Prev"></a></td>
+<td><a accesskey="n" href="Device.html"><img src="right.png" width="16" height="16" border="0" alt="Next"></a></td>
+</tr></table>
 <div class="refentry">
 <a name="UPower"></a><div class="titlepage"></div>
 <div class="refnamediv"><table width="100%"><tr>
@@ -39,32 +32,23 @@
 <h2><span class="refentrytitle">org.freedesktop.UPower</span></h2>
 <p>org.freedesktop.UPower — UPower interface</p>
 </td>
-<td valign="top" align="right"></td>
+<td class="gallery_image" valign="top" align="right"></td>
 </tr></table></div>
 <div class="refsynopsisdiv">
 <h2>Methods</h2>
 <pre class="synopsis"><a class="link" href="UPower.html#UPower.EnumerateDevices">EnumerateDevices</a>(out'ao'devices)
-<a class="link" href="UPower.html#UPower.AboutToSleep">AboutToSleep</a>(in's'action)
-<a class="link" href="UPower.html#UPower.Suspend">Suspend</a>()
-<a class="link" href="UPower.html#UPower.SuspendAllowed">SuspendAllowed</a>(out'b'allowed)
-<a class="link" href="UPower.html#UPower.Hibernate">Hibernate</a>()
-<a class="link" href="UPower.html#UPower.HibernateAllowed">HibernateAllowed</a>(out'b'allowed)
+<a class="link" href="UPower.html#UPower.GetDisplayDevice">GetDisplayDevice</a>(out'o'device)
+<a class="link" href="UPower.html#UPower.GetCriticalAction">GetCriticalAction</a>(out's'action)
 </pre>
 </div>
 <div class="refsect1">
-<a name="idp7966256"></a><h2>Signals</h2>
+<a name="id-1.2.3.4"></a><h2>Signals</h2>
 <pre class="synopsis"><a class="link" href="UPower.html#UPower::DeviceAdded">DeviceAdded</a>('o'device)
 <a class="link" href="UPower.html#UPower::DeviceRemoved">DeviceRemoved</a>('o'device)
-<a class="link" href="UPower.html#UPower::DeviceChanged">DeviceChanged</a>('o'device)
-<a class="link" href="UPower.html#UPower::Changed">Changed</a>()
-<a class="link" href="UPower.html#UPower::Sleeping">Sleeping</a>()
-<a class="link" href="UPower.html#UPower::NotifySleep">NotifySleep</a>('s'action)
-<a class="link" href="UPower.html#UPower::Resuming">Resuming</a>()
-<a class="link" href="UPower.html#UPower::NotifyResume">NotifyResume</a>('s'action)
 </pre>
 </div>
 <div class="refsect1">
-<a name="idp44672"></a><h2>Implemented Interfaces</h2>
+<a name="id-1.2.3.5"></a><h2>Implemented Interfaces</h2>
 <p>
     Objects implementing org.freedesktop.UPower also implements
     org.freedesktop.DBus.Introspectable,
@@ -72,20 +56,15 @@
     </p>
 </div>
 <div class="refsect1">
-<a name="idp46688"></a><h2>Properties</h2>
+<a name="id-1.2.3.6"></a><h2>Properties</h2>
 <pre class="synopsis"><a class="link" href="UPower.html#UPower:DaemonVersion">'DaemonVersion'</a>read's'
-<a class="link" href="UPower.html#UPower:CanSuspend">'CanSuspend'</a>read'b'
-<a class="link" href="UPower.html#UPower:CanHibernate">'CanHibernate'</a>read'b'
 <a class="link" href="UPower.html#UPower:OnBattery">'OnBattery'</a>read'b'
-<a class="link" href="UPower.html#UPower:OnLowBattery">'OnLowBattery'</a>read'b'
 <a class="link" href="UPower.html#UPower:LidIsClosed">'LidIsClosed'</a>read'b'
 <a class="link" href="UPower.html#UPower:LidIsPresent">'LidIsPresent'</a>read'b'
-<a class="link" href="UPower.html#UPower:LidForceSleep">'LidForceSleep'</a>read'b'
-<a class="link" href="UPower.html#UPower:IsDocked">'IsDocked'</a>read'b'
 </pre>
 </div>
 <div class="refsect1">
-<a name="idp62800"></a><h2>Description</h2>
+<a name="id-1.2.3.7"></a><h2>Description</h2>
 <p>
       
         </p>
@@ -139,9 +118,9 @@
     </p>
 </div>
 <div class="refsect1">
-<a name="idp69344"></a><h2>Details</h2>
+<a name="id-1.2.3.8"></a><h2>Details</h2>
 <div class="refsect2">
-<a name="idp70304"></a><h3>
+<a name="id-1.2.3.8.2"></a><h3>
 <a name="UPower.EnumerateDevices"></a>EnumerateDevices ()</h3>
 <pre class="programlisting">EnumerateDevices (out'ao'devices)</pre>
 </div>
@@ -160,27 +139,70 @@
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="idp75360"></a><h3>
-<a name="UPower.AboutToSleep"></a>AboutToSleep ()</h3>
-<pre class="programlisting">AboutToSleep (in's'action)</pre>
+<a name="id-1.2.3.8.5"></a><h3>
+<a name="UPower.GetDisplayDevice"></a>GetDisplayDevice ()</h3>
+<pre class="programlisting">GetDisplayDevice (out'o'device)</pre>
 </div>
 <p>
-            This method tells UPower that the Suspend() or Hibernate() method
-            is about to be called.
-            This allows UPower to emit the Suspending signal whilst
-            session activities are happening that have to be done before the
-            suspend process is started.
-          </p>
+            Get the object to the "display device", a composite device that represents the
+            status icon to show in desktop environments. You can also access the object directly
+            as its path is guaranteed to be /org/freedesktop/UPower/devices/DisplayDevice.
+            The following standard org.freedesktop.UPower.Device
+            properties will be defined (only <code class="literal">IsPresent</code> takes a special meaning):
+            </p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
+<li class="listitem">
+<span class="bold"><strong>Type: </strong></span>the type of the display device, UPS or Battery. Note that this value can change, as opposed to real devices.</li>
+<li class="listitem">
+<span class="bold"><strong>State: </strong></span>the power state of the display device, such as Charging or Discharging.</li>
+<li class="listitem">
+<span class="bold"><strong>Percentage: </strong></span>the amount of energy left on the device.</li>
+<li class="listitem">
+<span class="bold"><strong>Energy: </strong></span>Amount of energy (measured in Wh) currently available in the power source.</li>
+<li class="listitem">
+<span class="bold"><strong>EnergyFull: </strong></span>Amount of energy (measured in Wh) in the power source when it's considered full.</li>
+<li class="listitem">
+<span class="bold"><strong>EnergyRate: </strong></span>Amount of energy being drained from the source, measured in W. If positive, the source is being discharged, if negative it's being charged.</li>
+<li class="listitem">
+<span class="bold"><strong>TimeToEmpty: </strong></span>Number of seconds until the power source is considered empty.</li>
+<li class="listitem">
+<span class="bold"><strong>TimeToFull: </strong></span>Number of seconds until the power source is considered full.</li>
+<li class="listitem">
+<span class="bold"><strong>IsPresent: </strong></span>Whether a status icon using this information should be presented.</li>
+<li class="listitem">
+<span class="bold"><strong>IconName: </strong></span>An icon name representing the device state.</li>
+<li class="listitem">
+<span class="bold"><strong>WarningLevel: </strong></span>The same as the overall <code class="literal">WarningLevel</code>
+</li>
+</ul></div>
 <p>
-            This method would typically be called by the session power
-            management daemon, before it locks the screen and waits for the
-            screen to fade to black.
-            The session power management component would then call Suspend() or
-            Hibernate() when these syncronous tasks have completed.
           </p>
+<div class="variablelist"><table border="0" class="variablelist">
+<colgroup>
+<col align="left" valign="top">
+<col>
+</colgroup>
+<tbody><tr>
+<td><p><span class="term"><em class="parameter"><code>device</code></em>:</span></p></td>
+<td>An object path for the "display device.</td>
+</tr></tbody>
+</table></div>
+<hr>
+<div class="refsect2">
+<a name="id-1.2.3.8.8"></a><h3>
+<a name="UPower.GetCriticalAction"></a>GetCriticalAction ()</h3>
+<pre class="programlisting">GetCriticalAction (out's'action)</pre>
+</div>
 <p>
-            If this method is not called than nothing bad will happen and
-            Suspend() or Hibernate() will block for the required second.
+            When the system's power supply is critical (critically low batteries or UPS),
+            the system will take this action. Possible values are:
+            </p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
+<li class="listitem"><span class="bold"><strong>HybridSleep: </strong></span></li>
+<li class="listitem"><span class="bold"><strong>Hibernate: </strong></span></li>
+<li class="listitem"><span class="bold"><strong>PowerOff: </strong></span></li>
+</ul></div>
+<p>
           </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
@@ -189,109 +211,14 @@
 </colgroup>
 <tbody><tr>
 <td><p><span class="term"><em class="parameter"><code>action</code></em>:</span></p></td>
-<td>
-            The sleep action type, e.g. <code class="literal">suspend</code> or
-            <code class="literal">hibernate</code>.
-          </td>
-</tr></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idm33040"></a><h3>
-<a name="UPower.Suspend"></a>Suspend ()</h3>
-<pre class="programlisting">Suspend ()</pre>
-</div>
-<p>
-            Suspends the computer into a low power state.
-            System state is not preserved if the power is lost.
-          </p>
-<p>
-            If AboutToSleep() has not been called then UPower will send
-            the Sleeping() signal and block for one second.
-          </p>
-<p>
-            If AboutToSleep() has been called less than one second
-            before this method is called then UPower will block for the
-            remaining time to complete one second of delay.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idm28048"></a><h3>
-<a name="UPower.SuspendAllowed"></a>SuspendAllowed ()</h3>
-<pre class="programlisting">SuspendAllowed (out'b'allowed)</pre>
-</div>
-<p>
-            Check if the caller has (or can get) the PolicyKit privilege to call
-            <code class="function">Suspend</code>.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody><tr>
-<td><p><span class="term"><em class="parameter"><code>allowed</code></em>:</span></p></td>
-<td>TRUE if allowed, otherwise FALSE</td>
-</tr></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7085520"></a><h3>
-<a name="UPower.Hibernate"></a>Hibernate ()</h3>
-<pre class="programlisting">Hibernate ()</pre>
-</div>
-<p>
-            Hibernates the computer into a low power state.
-            System state is preserved if the power is lost.
-          </p>
-<p>
-            If AboutToSleep() has not been called then UPower will send
-            the Sleeping() signal and block for one second.
-          </p>
-<p>
-            If AboutToSleep() has been called less than one second
-            before this method is called then UPower will block for the
-            remaining time to complete one second of delay.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7090512"></a><h3>
-<a name="UPower.HibernateAllowed"></a>HibernateAllowed ()</h3>
-<pre class="programlisting">HibernateAllowed (out'b'allowed)</pre>
-</div>
-<p>
-            Check if the caller has (or can get) the PolicyKit privilege to call
-            <code class="function">Hibernate</code>.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody><tr>
-<td><p><span class="term"><em class="parameter"><code>allowed</code></em>:</span></p></td>
-<td>TRUE if allowed, otherwise FALSE</td>
+<td>A string representing the critical action configured and available.</td>
 </tr></tbody>
 </table></div>
 </div>
 <div class="refsect1">
-<a name="idp7096960"></a><h2>Signal Details</h2>
+<a name="id-1.2.3.9"></a><h2>Signal Details</h2>
 <div class="refsect2">
-<a name="idp7097920"></a><h3>
+<a name="id-1.2.3.9.2"></a><h3>
 <a name="UPower::DeviceAdded"></a>The DeviceAdded signal</h3>
 <pre class="programlisting">DeviceAdded ('o'device)</pre>
 </div>
@@ -310,7 +237,7 @@
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="idp7102960"></a><h3>
+<a name="id-1.2.3.9.5"></a><h3>
 <a name="UPower::DeviceRemoved"></a>The DeviceRemoved signal</h3>
 <pre class="programlisting">DeviceRemoved ('o'device)</pre>
 </div>
@@ -327,137 +254,11 @@
 <td>Object path of device that was removed.</td>
 </tr></tbody>
 </table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7108032"></a><h3>
-<a name="UPower::DeviceChanged"></a>The DeviceChanged signal</h3>
-<pre class="programlisting">DeviceChanged ('o'device)</pre>
-</div>
-<p>
-            Emitted when a device changed.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody><tr>
-<td><p><span class="term"><em class="parameter"><code>device</code></em>:</span></p></td>
-<td>Object path of device that was changed.</td>
-</tr></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7113104"></a><h3>
-<a name="UPower::Changed"></a>The Changed signal</h3>
-<pre class="programlisting">Changed ()</pre>
-</div>
-<p>
-            Emitted when one or more properties on the object changes.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7116736"></a><h3>
-<a name="UPower::Sleeping"></a>The Sleeping signal</h3>
-<pre class="programlisting">Sleeping ()</pre>
-</div>
-<p>
-            This signal is sent when the session is about to be suspended or
-            hibernated.
-          </p>
-<p>
-            This signal is DEPRECATED. Use NotifySleep() instead.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7120912"></a><h3>
-<a name="UPower::NotifySleep"></a>The NotifySleep signal</h3>
-<pre class="programlisting">NotifySleep ('s'action)</pre>
-</div>
-<p>
-            This signal is sent when the session is about to be suspended or
-            hibernated.
-            Session and system programs have one second to do anything required
-            before the sleep action is taken (such as sending out Avahi or
-            Jabber messages).
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody><tr>
-<td><p><span class="term"><em class="parameter"><code>action</code></em>:</span></p></td>
-<td>
-            The sleep action type, e.g. suspend,
-            hibernate or hybrid.
-          </td>
-</tr></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7126336"></a><h3>
-<a name="UPower::Resuming"></a>The Resuming signal</h3>
-<pre class="programlisting">Resuming ()</pre>
-</div>
-<p>
-            This signal is sent when the session has just returned from
-            Suspend() or Hibernate().
-          </p>
-<p>
-            This signal is DEPRECATED. Use NotifyResume() instead.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7130528"></a><h3>
-<a name="UPower::NotifyResume"></a>The NotifyResume signal</h3>
-<pre class="programlisting">NotifyResume ('s'action)</pre>
-</div>
-<p>
-            This signal is sent when the session has just returned from
-            Suspend() or Hibernate().
-            Session and system programs can then do anything required (such as
-            sending out Avahi or Jabber messages).
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody><tr>
-<td><p><span class="term"><em class="parameter"><code>action</code></em>:</span></p></td>
-<td>
-            The sleep action type, e.g. suspend,
-            hibernate or hybrid.
-          </td>
-</tr></tbody>
-</table></div>
 </div>
 <div class="refsect1">
-<a name="idp7136080"></a><h2>Property Details</h2>
+<a name="id-1.2.3.10"></a><h2>Property Details</h2>
 <div class="refsect2">
-<a name="idp7137040"></a><h3>
+<a name="id-1.2.3.10.2"></a><h3>
 <a name="UPower:DaemonVersion"></a>The "DaemonVersion" property</h3>
 <pre class="programlisting">'DaemonVersion'read's'
 </pre>
@@ -474,41 +275,7 @@
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="idp7141088"></a><h3>
-<a name="UPower:CanSuspend"></a>The "CanSuspend" property</h3>
-<pre class="programlisting">'CanSuspend'read'b'
-</pre>
-</div>
-<p>
-            Whether the system is able to suspend.
-      </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7144416"></a><h3>
-<a name="UPower:CanHibernate"></a>The "CanHibernate" property</h3>
-<pre class="programlisting">'CanHibernate'read'b'
-</pre>
-</div>
-<p>
-            Whether the system is able to hibernate.
-      </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7147744"></a><h3>
+<a name="id-1.2.3.10.5"></a><h3>
 <a name="UPower:OnBattery"></a>The "OnBattery" property</h3>
 <pre class="programlisting">'OnBattery'read'b'
 </pre>
@@ -526,25 +293,7 @@
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="idp7151216"></a><h3>
-<a name="UPower:OnLowBattery"></a>The "OnLowBattery" property</h3>
-<pre class="programlisting">'OnLowBattery'read'b'
-</pre>
-</div>
-<p>
-            Indicates whether the system is running on battery power and if the battery is critically low.
-            This property is provided for convenience.
-      </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7154736"></a><h3>
+<a name="id-1.2.3.10.8"></a><h3>
 <a name="UPower:LidIsClosed"></a>The "LidIsClosed" property</h3>
 <pre class="programlisting">'LidIsClosed'read'b'
 </pre>
@@ -561,7 +310,7 @@
 </table></div>
 <hr>
 <div class="refsect2">
-<a name="idp7158496"></a><h3>
+<a name="id-1.2.3.10.11"></a><h3>
 <a name="UPower:LidIsPresent"></a>The "LidIsPresent" property</h3>
 <pre class="programlisting">'LidIsPresent'read'b'
 </pre>
@@ -576,54 +325,9 @@
 </colgroup>
 <tbody></tbody>
 </table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7162144"></a><h3>
-<a name="UPower:LidForceSleep"></a>The "LidForceSleep" property</h3>
-<pre class="programlisting">'LidForceSleep'read'b'
-</pre>
-</div>
-<p>
-            If the system really has to sleep when the lid is closed.
-            Some laptops actually melt (!) if the lid is closed and the
-            computer keeps running. We blacklist those, and do something
-            sane for the other machines.
-          </p>
-<p>
-            This allows us to set the default session policy to not
-            suspend on lid close if the laptop is docked, and be sure
-            the machine is not going to melt.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
-<hr>
-<div class="refsect2">
-<a name="idp7166704"></a><h3>
-<a name="UPower:IsDocked"></a>The "IsDocked" property</h3>
-<pre class="programlisting">'IsDocked'read'b'
-</pre>
-</div>
-<p>
-            If the system is currently docked.
-            Note: the "is-docked" value is the result of a heuristic,
-            which may involve testing the display output.
-          </p>
-<div class="variablelist"><table border="0" class="variablelist">
-<colgroup>
-<col align="left" valign="top">
-<col>
-</colgroup>
-<tbody></tbody>
-</table></div>
 </div>
 </div>
 <div class="footer">
-<hr>
-          Generated by GTK-Doc V1.18</div>
+<hr>Generated by GTK-Doc V1.24</div>
 </body>
 </html>

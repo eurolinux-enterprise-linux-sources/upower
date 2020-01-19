@@ -154,17 +154,6 @@ method return sender=:1.386 -> dest=:1.477 reply_serial=2
     </method>
 
     <!-- ************************************************************ -->
-    <signal name="Changed">
-      <doc:doc>
-        <doc:description>
-          <doc:para>
-            Some value on the power source changed.
-          </doc:para>
-        </doc:description>
-      </doc:doc>
-    </signal>
-
-    <!-- ************************************************************ -->
     <method name="GetHistory">
       <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
       <arg name="type" direction="in" type="s">
@@ -544,6 +533,19 @@ method return sender=:1.386 -> dest=:1.477 reply_serial=2
       </doc:doc>
     </property>
 
+    <property name="Temperature" type="d" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>
+            The temperature of the device in degrees Celsius. This property is
+            only valid if the property
+            <doc:ref type="property" to="Source:Type">type</doc:ref>
+            has the value "battery".
+          </doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+
     <property name="IsPresent" type="b" access="read">
       <doc:doc>
         <doc:description>
@@ -671,45 +673,45 @@ method return sender=:1.386 -> dest=:1.477 reply_serial=2
       </doc:doc>
     </property>
 
-    <property name="RecallNotice" type="b" access="read">
+    <property name="WarningLevel" type="u" access="read">
       <doc:doc>
         <doc:description>
           <doc:para>
-            If the device may have been recalled by the vendor due to a suspected
-            fault.
-            This key does not imply the device is faulty, only that it approximatly
-            matches the description from the vendor of units that were recalled.
+            Warning level of the battery:
           </doc:para>
+          <doc:list>
+            <doc:item>
+              <doc:term>0</doc:term><doc:definition>Unknown</doc:definition>
+            </doc:item>
+            <doc:item>
+              <doc:term>1</doc:term><doc:definition>None</doc:definition>
+            </doc:item>
+            <doc:item>
+              <doc:term>2</doc:term><doc:definition>Discharging (only for UPSes)</doc:definition>
+            </doc:item>
+            <doc:item>
+              <doc:term>3</doc:term><doc:definition>Low</doc:definition>
+            </doc:item>
+            <doc:item>
+              <doc:term>4</doc:term><doc:definition>Critical</doc:definition>
+            </doc:item>
+            <doc:item>
+              <doc:term>5</doc:term><doc:definition>Action</doc:definition>
+            </doc:item>
+          </doc:list>
         </doc:description>
       </doc:doc>
     </property>
 
-    <property name="RecallVendor" type="s" access="read">
+    <property name="IconName" type="s" access="read">
       <doc:doc>
         <doc:description>
           <doc:para>
-            The vendor that is handling the hardware recall.
-          </doc:para>
-          <doc:para>
-            This property is only valid if the property recall-notice is true.
+            An icon name, following the <a href="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon Naming Specification</a>
           </doc:para>
         </doc:description>
       </doc:doc>
     </property>
-
-    <property name="RecallUrl" type="s" access="read">
-      <doc:doc>
-        <doc:description>
-          <doc:para>
-            The URL to visit about the hardware recall.
-          </doc:para>
-          <doc:para>
-            This property is only valid if the property recall-notice is true.
-          </doc:para>
-        </doc:description>
-      </doc:doc>
-    </property>
-
   </interface>
 
 </node>

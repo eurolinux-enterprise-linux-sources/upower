@@ -422,12 +422,6 @@ static void
 up_wakeup_item_init (UpWakeupItem *wakeup_item)
 {
 	wakeup_item->priv = UP_WAKEUP_ITEM_GET_PRIVATE (wakeup_item);
-	wakeup_item->priv->is_userspace = FALSE;
-	wakeup_item->priv->id = 0;
-	wakeup_item->priv->old = 0;
-	wakeup_item->priv->value = 0.0f;
-	wakeup_item->priv->cmdline = NULL;
-	wakeup_item->priv->details = NULL;
 }
 
 /**
@@ -458,8 +452,6 @@ up_wakeup_item_finalize (GObject *object)
 UpWakeupItem *
 up_wakeup_item_new (void)
 {
-	UpWakeupItem *wakeup_item;
-	wakeup_item = g_object_new (UP_TYPE_WAKEUP_ITEM, NULL);
-	return UP_WAKEUP_ITEM (wakeup_item);
+	return UP_WAKEUP_ITEM (g_object_new (UP_TYPE_WAKEUP_ITEM, NULL));
 }
 

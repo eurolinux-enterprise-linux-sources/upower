@@ -14,10 +14,10 @@
            send_interface="org.freedesktop.DBus.Introspectable"/>
 
     <allow send_destination="org.freedesktop.UPower"
+           send_interface="org.freedesktop.DBus.Peer"/>
+    <allow send_destination="org.freedesktop.UPower"
            send_interface="org.freedesktop.DBus.Properties"/>
     <allow send_destination="org.freedesktop.UPower.Device"
-           send_interface="org.freedesktop.DBus.Properties"/>
-    <allow send_destination="org.freedesktop.UPower.QoS"
            send_interface="org.freedesktop.DBus.Properties"/>
     <allow send_destination="org.freedesktop.UPower.KbdBacklight"
            send_interface="org.freedesktop.DBus.Properties"/>
@@ -28,8 +28,6 @@
            send_interface="org.freedesktop.UPower"/>
     <allow send_destination="org.freedesktop.UPower"
            send_interface="org.freedesktop.UPower.Device"/>
-    <allow send_destination="org.freedesktop.UPower"
-           send_interface="org.freedesktop.UPower.QoS"/>
     <allow send_destination="org.freedesktop.UPower"
            send_interface="org.freedesktop.UPower.KbdBacklight"/>
     <allow send_destination="org.freedesktop.UPower"

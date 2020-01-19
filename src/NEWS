@@ -1,3 +1,134 @@
+Version 0.99.4
+~~~~~~~~~~~~~~
+Released: 2016-02-16
+
+New Features:
+ - Add support for Logitech G700s/G700 Gaming Mouse (muzena)
+ - Port to GDBus (Cosimo Cecchi)
+ - Support g_autoptr() for all libupower-glib object types (Kalev Lember)
+
+Bugfixes:
+ - Add critical action support for *BSD (Eric Koegel)
+ - Change the default low battery policy to percentage (Bastien Nocera)
+ - Fix deprecation warning in integration-test (Bastien Nocera)
+ - Fix memory leak in up_client_get_devices() (Bastien Nocera)
+ - Fix possible double-free (Bastien Nocera)
+ - Update HID rules and fix build regression (Arnaud Quette)
+
+Version 0.99.3
+~~~~~~~~~~~~~~
+Released: 2015-05-28
+
+Bugfixes:
+ - Bail out when iDevice state is malformed (Bastien Nocera)
+ - Defer getting iDevice info until ready (Bastien Nocera)
+ - Fix crash on uninitialized variant (Vlad Orlov)
+ - Fix libimobiledevice msg in configure (Bastien Nocera)
+ - More memory handling fixes in iDevice (Bastien Nocera)
+ - Properly detect bluetooth mice and keyboards that are HID devices (Marc Deslauriers)
+ - Support Logitech Unifying in Linux 3.19 (Peter Wu)
+ - Work-around broken battery on the Onda v975w (Bastien Nocera)
+
+Version 0.99.2
+~~~~~~~~~~~~~~
+Released: 2014-12-18
+
+Bugfixes:
+ - Avoid unaligned memory access in hidpp-device (Peter Wu)
+ - Bump GLib min req to 2.34 (Eric Koegel)
+ - Correct check to prevent the display of invalid ASCII codes (Eric Koegel)
+ - Fencepost array access error (Eric Koegel)
+ - Fix cleanup in up_device_idevice_coldplug/finalize (Nikolay Martynov)
+ - Fix crash if there is no session D-BUS (Martin Pitt)
+ - Fix error handling for Python 3.4 (Martin Pitt)
+ - Fix various memory and reference leaks (Peter Wu)
+ - Release resources at shutdown (Peter Wu)
+ - Respect the CriticalPowerAction config option (Bastien Nocera)
+ - Set update-time on the aggregate device (Bastien Nocera)
+ - Split out updating on_battery and warning_level (Bastien Nocera)
+ - Update aggregate device on battery removal (Evangelos Foutras)
+ - Update display device when battery is removed (Bastien Nocera)
+ - Use g_get_real_time() when possible (Bastien Nocera)
+
+Version 0.99.1
+~~~~~~~~~~~~~~
+Released: 2014-08-18
+
+New Features:
+ - Expose "capacity" and "energy-full-design" properties on OpenBSD (Fabian Raetz)
+ - Remove IsDocked property (Bastien Nocera)
+ - Remove unused polkit dependency (Eric Koegel, Martin Pitt)
+
+Bugfixes:
+ - Create the history directory at runtime (Cosimo Cecchi)
+ - Do not log a critical warning when using _set_object_path_sync() (Richard Hughes)
+ - Fix API doc for up_client_get_on_battery() (Bastien Nocera)
+ - Fix possible UpHistoryItem leak on failure (Bastien Nocera)
+ - Fix segfault on getting property when daemon is not running (Martin Pitt)
+ - Fix shutdown on boot on some machines (Bastien Nocera)
+ - Fix small memleak on startup with Logitech devices (Bastien Nocera)
+ - Free the obtained device list array after use (Alexander Jesner)
+ - Update lid status when updating AC status (Jasper Lievisse Adriaanse)
+
+Version 0.99.0
+~~~~~~~~~~~~~~
+Released: 2013-10-29
+
+Notes:
+ - This version contains major API changes. Use the 0.9.* versions if you want
+   to keep using the old API.
+
+New Features:
+ - Add WarningLevel and IconName properties to all devices (Bastien Nocera)
+ - Add DisplayDevice composite battery (Bastien Nocera)
+ - Enforce critical battery policy on the daemon side (Bastien Nocera)
+
+Bugfixes:
+ - Reduce client-side and daemon-side wake-ups (Bastien Nocera)
+ - Emit PropertiesChanged signals (Bastien Nocera)
+ - Register objects on the bus once they've been setup (Bastien Nocera)
+ - Clamp percentage for overfull batteries (Martin Pitt)
+
+Feature Removals:
+ - Remove battery recall support (Bastien Nocera)
+ - Remove QoS support (Bastien Nocera)
+ - Remove OnLowBattery property (use WarningLevel instead) (Bastien Nocera)
+ - Remove DeviceChanged and Changed signals (PropertiesChanged
+   signals are sent instead) (Bastien Nocera)
+
+Version 0.9.22
+~~~~~~~~~~~~~~
+Released: 2013-10-08
+
+New Features:
+ - Add temperature property for batteries (Seth Forshee)
+
+Bugfixes:
+ - Fix error handling in up_client_get_properties_sync() (Bastien Nocera, Martin Pitt)
+ - Make GetHistory() array order consistent (Martin Pitt)
+ - Fix crash with bluetooth input devices (Martin Pitt)
+ - Lots of fixes/rework for Logitech wireless input devices (Peter Wu)
+ - Allow valid UTF-8 encoded properties (Shih-Yuan Lee (FourDollars))
+ - Detect the battery of bluetooth input devices (Shih-Yuan Lee (FourDollars))
+ - Only one warning if no valid voltage found (Timothée Ravier)
+ - openbsd: Do not call g_thread_init() (Richard Hughes)
+
+Version 0.9.21
+~~~~~~~~~~~~~~
+Released: 2013-07-26
+
+New Features:
+ - Add support for Logitech Wireless (NonUnifying) devices (Arkadiusz Miśkiewicz)
+ - Use PIE to better secure installed tools and also use full RELRO in the daemon (Richard Hughes)
+
+Bugfixes:
+ - Allow clients to call org.freedesktop.DBus.Peer (Richard Hughes)
+ - Detect udev rules dir (Tom Gundersen)
+ - Drop --enable-systemd and linking to libsystemd-daemon (Martin Pitt)
+ - Find hidraw devices correctly with systemd udev >= v196 (Arkadiusz Miśkiewicz)
+ - Fix test for logind availability (Martin Pitt)
+ - Update the upower man page with all the current options (Richard Hughes)
+
 Version 0.9.20
 ~~~~~~~~~~~~~~
 Released: 2013-03-18

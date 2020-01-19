@@ -48,14 +48,14 @@
  *
  * The compile-time minor version
  */
-#define UP_MINOR_VERSION				(9)
+#define UP_MINOR_VERSION				(99)
 
 /**
  * UP_MICRO_VERSION:
  *
  * The compile-time micro version
  */
-#define UP_MICRO_VERSION				(20)
+#define UP_MICRO_VERSION				(4)
 
 /* check whether a UPower version equal to or greater than
  * major.minor.micro.

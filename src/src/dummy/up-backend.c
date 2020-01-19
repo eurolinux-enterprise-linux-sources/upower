@@ -29,7 +29,6 @@
 
 #include "up-backend.h"
 #include "up-daemon.h"
-#include "up-marshal.h"
 #include "up-device.h"
 
 static void	up_backend_class_init	(UpBackendClass	*klass);
@@ -68,14 +67,12 @@ static gboolean
 up_backend_changed_time_cb (UpBackend *backend)
 {
 	UpDevice *device;
-	GTimeVal timeval;
 
 	//FIXME!
 	device = NULL;
 
 	/* reset time */
-	g_get_current_time (&timeval);
-	g_object_set (device, "update-time", (guint64) timeval.tv_sec, NULL);
+	g_object_set (device, "update-time", (guint64) g_get_real_time () / G_USEC_PER_SEC, NULL);
 	return TRUE;
 }
 
@@ -100,9 +97,7 @@ up_backend_add_cb (UpBackend *backend)
 
 	/* setup poll */
 	timer_id = g_timeout_add_seconds (2, (GSourceFunc) up_backend_changed_time_cb, backend);
-#if GLIB_CHECK_VERSION(2,25,8)
-	g_source_set_name_by_id (timer_id, "[UpBackend] changed");
-#endif
+	g_source_set_name_by_id (timer_id, "[upower] up_backend_changed_time_cb (dummy)");
 out:
 	return FALSE;
 }
@@ -133,6 +128,51 @@ up_backend_coldplug (UpBackend *backend, UpDaemon *daemon)
 }
 
 /**
+ * up_backend_unplug:
+ * @backend: The %UpBackend class instance
+ *
+ * Forget about all learned devices, effectively undoing up_backend_coldplug.
+ * Resources are released without emitting signals.
+ */
+void
+up_backend_unplug (UpBackend *backend)
+{
+	if (backend->priv->device_list != NULL) {
+		g_object_unref (backend->priv->device_list);
+		backend->priv->device_list = NULL;
+	}
+	if (backend->priv->daemon != NULL) {
+		g_object_unref (backend->priv->daemon);
+		backend->priv->daemon = NULL;
+	}
+}
+
+/**
+ * up_backend_get_critical_action:
+ * @backend: The %UpBackend class instance
+ *
+ * Which action will be taken when %UP_DEVICE_LEVEL_ACTION
+ * warning-level occurs.
+ **/
+const char *
+up_backend_get_critical_action (UpBackend *backend)
+{
+	return "PowerOff";
+}
+
+/**
+ * up_backend_take_action:
+ * @backend: The %UpBackend class instance
+ *
+ * Act upon the %UP_DEVICE_LEVEL_ACTION warning-level.
+ **/
+void
+up_backend_take_action (UpBackend *backend)
+{
+	g_debug ("Not taking any action, dummy backend is used");
+}
+
+/**
  * up_backend_class_init:
  * @klass: The UpBackendClass
  **/
@@ -146,13 +186,13 @@ up_backend_class_init (UpBackendClass *klass)
 		g_signal_new ("device-added",
 			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (UpBackendClass, device_added),
-			      NULL, NULL, up_marshal_VOID__POINTER_POINTER,
+			      NULL, NULL, NULL,
 			      G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_POINTER);
 	signals [SIGNAL_DEVICE_REMOVED] =
 		g_signal_new ("device-removed",
 			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (UpBackendClass, device_removed),
-			      NULL, NULL, up_marshal_VOID__POINTER_POINTER,
+			      NULL, NULL, NULL,
 			      G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_POINTER);
 
 	g_type_class_add_private (klass, sizeof (UpBackendPrivate));
@@ -228,78 +268,5 @@ up_backend_finalize (GObject *object)
 UpBackend *
 up_backend_new (void)
 {
-	UpBackend *backend;
-	backend = g_object_new (UP_TYPE_BACKEND, NULL);
-	return UP_BACKEND (backend);
-}
-
-/**
- * up_backend_kernel_can_suspend:
- **/
-gboolean
-up_backend_kernel_can_suspend (UpBackend *backend)
-{
-	return FALSE;
-}
-
-/**
- * up_backend_kernel_can_hibernate:
- **/
-gboolean
-up_backend_kernel_can_hibernate (UpBackend *backend)
-{
-	return FALSE;
-}
-
-/**
- * up_backend_has_encrypted_swap:
- **/
-gboolean
-up_backend_has_encrypted_swap (UpBackend *backend)
-{
-	return FALSE;
-}
-
-/**
- * up_backend_get_used_swap:
- *
- * Return value: a percentage value
- **/
-gfloat
-up_backend_get_used_swap (UpBackend *backend)
-{
-	return 0.0;
-}
-
-/**
- * up_backend_get_suspend_command:
- **/
-const gchar *
-up_backend_get_suspend_command (UpBackend *backend)
-{
-	return "/bin/true";
-}
-
-/**
- * up_backend_get_hibernate_command:
- **/
-const gchar *
-up_backend_get_hibernate_command (UpBackend *backend)
-{
-	return "/bin/true";
-}
-
-/**
- * up_backend_get_powersave_command:
- **/
-const gchar *
-up_backend_get_powersave_command (UpBackend *backend, gboolean powersave)
-{
-	return "/bin/true";
-}
-
-gboolean
-up_backend_emits_resuming (UpBackend *backend)
-{
-	return FALSE;
+	return g_object_new (UP_TYPE_BACKEND, NULL);
 }

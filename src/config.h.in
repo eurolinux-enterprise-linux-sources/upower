@@ -34,7 +34,7 @@
 /* Define if you have the iconv() function and it works. */
 #undef HAVE_ICONV
 
-/* Define to 1 if AFC is going to be built */
+/* Define to 1 if iDevice is going to be built */
 #undef HAVE_IDEVICE
 
 /* Define to 1 if you have the <inttypes.h> header file. */
@@ -55,9 +55,6 @@
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
 
-/* Define if systemd is used for session tracking */
-#undef HAVE_SYSTEMD
-
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
@@ -70,9 +67,6 @@
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
-
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
 
 /* Name of package */
 #undef PACKAGE

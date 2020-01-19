@@ -121,7 +121,7 @@ up_history_array_limit_resolution (GPtrArray *array, guint max_num)
 	UpHistoryItem *item_new;
 	gfloat division;
 	guint length;
-	gint i;
+	guint i;
 	guint last;
 	guint first;
 	GPtrArray *new;
@@ -157,7 +157,7 @@ up_history_array_limit_resolution (GPtrArray *array, guint max_num)
 	/* Reduces the number of points to a pre-set level using a time
 	 * division algorithm so we don't keep diluting the previous
 	 * data with a conventional 1-in-x type algorithm. */
-	for (i=length-1; i>=0; i--) {
+	for (i = 0; i < length; i++) {
 		item = (UpHistoryItem *) g_ptr_array_index (array, i);
 		preset = last + (division * (gfloat) step);
 
@@ -299,7 +299,7 @@ up_history_get_profile_data (UpHistory *history, gboolean charging)
 	g_return_val_if_fail (UP_IS_HISTORY (history), NULL);
 
 	/* create 100 item list and set to zero */
-	data = g_ptr_array_new ();
+	data = g_ptr_array_new_full (101, g_object_unref);
 	for (i=0; i<101; i++) {
 		stats = up_stats_item_new ();
 		g_ptr_array_add (data, stats);
@@ -414,6 +414,7 @@ up_history_set_directory (UpHistory *history, const gchar *dir)
 {
 	g_free (history->priv->dir);
 	history->priv->dir = g_strdup (dir);
+	g_mkdir_with_parents (dir, 0755);
 }
 
 /**
@@ -531,6 +532,8 @@ up_history_array_from_file (GPtrArray *list, const gchar *filename)
 		ret = up_history_item_set_from_string (item, parts[i]);
 		if (ret)
 			g_ptr_array_add (list, item);
+		else
+			g_object_unref (item);
 	}
 
 out:
@@ -652,9 +655,7 @@ up_history_schedule_save (UpHistory *history)
 	g_debug ("saving in %i seconds", UP_HISTORY_SAVE_INTERVAL);
 	history->priv->save_id = g_timeout_add_seconds (UP_HISTORY_SAVE_INTERVAL,
 							(GSourceFunc) up_history_schedule_save_cb, history);
-#if GLIB_CHECK_VERSION(2,25,8)
-	g_source_set_name_by_id (history->priv->save_id, "[UpHistory] save");
-#endif
+	g_source_set_name_by_id (history->priv->save_id, "[upower] up_history_schedule_save_cb");
 	return TRUE;
 }
 
@@ -884,17 +885,13 @@ static void
 up_history_init (UpHistory *history)
 {
 	history->priv = UP_HISTORY_GET_PRIVATE (history);
-	history->priv->id = NULL;
-	history->priv->rate_last = 0;
-	history->priv->percentage_last = 0;
-	history->priv->state = UP_DEVICE_STATE_UNKNOWN;
 	history->priv->data_rate = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	history->priv->data_charge = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	history->priv->data_time_full = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
 	history->priv->data_time_empty = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
-	history->priv->save_id = 0;
 	history->priv->max_data_age = UP_HISTORY_DEFAULT_MAX_DATA_AGE;
-	history->priv->dir = g_build_filename (HISTORY_DIR, NULL);
+
+	up_history_set_directory (history, HISTORY_DIR);
 }
 
 /**
@@ -937,8 +934,6 @@ up_history_finalize (GObject *object)
 UpHistory *
 up_history_new (void)
 {
-	UpHistory *history;
-	history = g_object_new (UP_TYPE_HISTORY, NULL);
-	return UP_HISTORY (history);
+	return g_object_new (UP_TYPE_HISTORY, NULL);
 }
 

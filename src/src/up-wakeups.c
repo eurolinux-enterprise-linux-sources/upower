@@ -22,29 +22,18 @@
 #include "config.h"
 
 #include <glib.h>
-#include <dbus/dbus-glib.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "up-wakeups.h"
 #include "up-daemon.h"
-#include "up-marshal.h"
-#include "up-wakeups-glue.h"
 #include "up-wakeup-item.h"
 
 static void     up_wakeups_finalize   (GObject		*object);
 static gboolean	up_wakeups_timerstats_enable (UpWakeups *wakeups);
 
 #define UP_WAKEUPS_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), UP_TYPE_WAKEUPS, UpWakeupsPrivate))
-
-#define UP_WAKEUPS_REQUESTS_STRUCT_TYPE (dbus_g_type_get_struct ("GValueArray",	\
-							      G_TYPE_BOOLEAN,	\
-							      G_TYPE_UINT,	\
-							      G_TYPE_DOUBLE,	\
-							      G_TYPE_STRING,	\
-							      G_TYPE_STRING,	\
-							      G_TYPE_INVALID))
 
 #define UP_WAKEUPS_POLL_INTERVAL_KERNEL	2 /* seconds */
 #define UP_WAKEUPS_POLL_INTERVAL_USERSPACE	2 /* seconds */
@@ -57,30 +46,15 @@ static gboolean	up_wakeups_timerstats_enable (UpWakeups *wakeups);
 struct UpWakeupsPrivate
 {
 	GPtrArray		*data;
-	DBusGConnection		*connection;
 	guint			 total_old;
 	guint			 total_ave;
 	guint			 poll_userspace_id;
 	guint			 poll_kernel_id;
 	guint			 disable_id;
 	gboolean		 polling_enabled;
-	gboolean		 has_capability;
 };
 
-enum {
-	PROP_0,
-	PROP_HAS_CAPABILITY,
-};
-
-enum {
-	TOTAL_CHANGED,
-	DATA_CHANGED,
-	LAST_SIGNAL
-};
-
-static guint signals [LAST_SIGNAL] = { 0 };
-
-G_DEFINE_TYPE (UpWakeups, up_wakeups, G_TYPE_OBJECT)
+G_DEFINE_TYPE (UpWakeups, up_wakeups, UP_TYPE_EXPORTED_WAKEUPS_SKELETON)
 
 /**
  * up_wakeups_get_cmdline:
@@ -166,15 +140,19 @@ up_wakeups_data_get_total (UpWakeups *wakeups)
  *
  * Gets the current latency
  **/
-gboolean
-up_wakeups_get_total (UpWakeups *wakeups, guint *value, GError **error)
+static gboolean
+up_wakeups_get_total (UpExportedWakeups *skeleton,
+		      GDBusMethodInvocation *invocation,
+		      UpWakeups *wakeups)
 {
 	gboolean ret;
 
 	/* no capability */
-	if (!wakeups->priv->has_capability) {
-		g_set_error_literal (error, UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL, "no hardware support");
-		return FALSE;
+	if (!up_exported_wakeups_get_has_capability (skeleton)) {
+		g_dbus_method_invocation_return_error_literal (invocation,
+							       UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL,
+							       "no hardware support");
+		return TRUE;
 	}
 
 	/* start if not already started */
@@ -182,29 +160,36 @@ up_wakeups_get_total (UpWakeups *wakeups, guint *value, GError **error)
 
 	/* no data */
 	if (!ret) {
-		g_set_error_literal (error, UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL, "cannot enable timerstats");
-		return FALSE;
+		g_dbus_method_invocation_return_error_literal (invocation,
+							       UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL,
+							       "cannot enable timerstats");
+		return TRUE;
 	}
 
 	/* return total averaged */
-	*value = wakeups->priv->total_ave;
+	up_exported_wakeups_complete_get_total (skeleton, invocation, wakeups->priv->total_ave);
 	return TRUE;
 }
 
 /**
  * up_wakeups_get_data:
  **/
-gboolean
-up_wakeups_get_data (UpWakeups *wakeups, GPtrArray **data, GError **error)
+static gboolean
+up_wakeups_get_data (UpExportedWakeups *skeleton,
+		     GDBusMethodInvocation *invocation,
+		     UpWakeups *wakeups)
 {
 	guint i;
 	GPtrArray *array;
 	UpWakeupItem *item;
+	GVariantBuilder builder;
 
 	/* no capability */
-	if (!wakeups->priv->has_capability) {
-		g_set_error_literal (error, UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL, "no hardware support");
-		return FALSE;
+	if (!up_exported_wakeups_get_has_capability (skeleton)) {
+		g_dbus_method_invocation_return_error_literal (invocation,
+							       UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL,
+							       "no hardware support");
+		return TRUE;
 	}
 
 	/* start if not already started */
@@ -213,29 +198,23 @@ up_wakeups_get_data (UpWakeups *wakeups, GPtrArray **data, GError **error)
 	/* sort data */
 	g_ptr_array_sort (wakeups->priv->data, (GCompareFunc) up_wakeups_data_item_compare);
 
-	*data = g_ptr_array_new ();
+	g_variant_builder_init (&builder, G_VARIANT_TYPE ("a(budss)"));
 	array = wakeups->priv->data;
-	for (i=0; i<array->len; i++) {
-		GValue elem = {0};
-
+	for (i = 0; i < array->len; i++) {
 		item = g_ptr_array_index (array, i);
 		if (up_wakeup_item_get_value (item) < UP_WAKEUPS_SMALLEST_VALUE)
 			continue;
-		g_value_init (&elem, UP_WAKEUPS_REQUESTS_STRUCT_TYPE);
-		g_value_take_boxed (&elem, dbus_g_type_specialized_construct (UP_WAKEUPS_REQUESTS_STRUCT_TYPE));
-		dbus_g_type_struct_set (&elem,
-					0, up_wakeup_item_get_is_userspace (item),
-					1, up_wakeup_item_get_id (item),
-					2, up_wakeup_item_get_value (item),
-					3, up_wakeup_item_get_cmdline (item),
-					4, up_wakeup_item_get_details (item),
-					G_MAXUINT);
-		g_ptr_array_add (*data, g_value_get_boxed (&elem));
+
+		g_variant_builder_add (&builder, "(budss)",
+				       up_wakeup_item_get_is_userspace (item),
+				       up_wakeup_item_get_id (item),
+				       up_wakeup_item_get_value (item),
+				       up_wakeup_item_get_cmdline (item),
+				       up_wakeup_item_get_details (item));
 	}
 
-//	dbus_g_method_return (context, data);
-//	g_ptr_array_foreach (*data, (GFunc) g_value_array_free, NULL);
-//	g_ptr_array_unref (*data);
+	up_exported_wakeups_complete_get_data (skeleton, invocation,
+					       g_variant_builder_end (&builder));
 
 	return TRUE;
 }
@@ -283,8 +262,8 @@ up_strsplit_complete_set (const gchar *string, const gchar *delimiters, guint ma
 
 			/* find length of string */
 			len = &string[i] - start;
-			if (len > 100)
-				len = 100;
+			if (len > 99)
+				len = 99;
 			strncpy (temp_data, start, len);
 			temp_data[len] = '\0';
 
@@ -317,11 +296,13 @@ up_wakeups_perhaps_data_changed (UpWakeups *wakeups)
 			wakeups->priv->total_ave = total;
 		else
 			wakeups->priv->total_ave = UP_WAKEUPS_TOTAL_SMOOTH_FACTOR * (gfloat) (total - wakeups->priv->total_old);
-		g_signal_emit (wakeups, signals [TOTAL_CHANGED], 0, wakeups->priv->total_ave);
+
+		up_exported_wakeups_emit_total_changed (UP_EXPORTED_WAKEUPS (wakeups),
+							wakeups->priv->total_ave);
 	}
 
 	/* unconditionally emit */
-	g_signal_emit (wakeups, signals [DATA_CHANGED], 0);
+	up_exported_wakeups_emit_data_changed (UP_EXPORTED_WAKEUPS (wakeups));
 }
 
 /**
@@ -469,6 +450,7 @@ up_wakeups_poll_userspace_cb (UpWakeups *wakeups)
 	guint pid;
 	guint interrupts;
 	gfloat interval = 5.0f;
+	gchar *cmdline;
 
 	g_debug ("event");
 
@@ -546,7 +528,9 @@ up_wakeups_poll_userspace_cb (UpWakeups *wakeups)
 				up_wakeup_item_set_is_userspace (item, FALSE);
 			} else {
 				/* try to get a better command line */
-				up_wakeup_item_set_cmdline (item, up_wakeups_get_cmdline (pid));
+				cmdline = up_wakeups_get_cmdline (pid);
+				up_wakeup_item_set_cmdline (item, cmdline);
+				g_free (cmdline);
 				if (up_wakeup_item_get_cmdline (item) == NULL ||
 				    up_wakeup_item_get_cmdline (item)[0] == '\0')
 					up_wakeup_item_set_cmdline (item, string);
@@ -634,9 +618,7 @@ up_wakeups_timerstats_enable (UpWakeups *wakeups)
 	wakeups->priv->disable_id =
 		g_timeout_add_seconds (UP_WAKEUPS_DISABLE_INTERVAL,
 				       (GSourceFunc) up_wakeups_disable_cb, wakeups);
-#if GLIB_CHECK_VERSION(2,25,8)
-	g_source_set_name_by_id (wakeups->priv->disable_id, "[UpWakeups] disable");
-#endif
+	g_source_set_name_by_id (wakeups->priv->disable_id, "[upower] up_wakeups_disable_cb");
 
 	/* already same state */
 	if (wakeups->priv->polling_enabled)
@@ -648,15 +630,12 @@ up_wakeups_timerstats_enable (UpWakeups *wakeups)
 	wakeups->priv->poll_kernel_id =
 		g_timeout_add_seconds (UP_WAKEUPS_POLL_INTERVAL_KERNEL,
 				       (GSourceFunc) up_wakeups_poll_kernel_cb, wakeups);
-#if GLIB_CHECK_VERSION(2,25,8)
-	g_source_set_name_by_id (wakeups->priv->poll_kernel_id, "[UpWakeups] kernel");
-#endif
+	g_source_set_name_by_id (wakeups->priv->poll_kernel_id, "[upower] up_wakeups_poll_kernel_cb");
+
 	wakeups->priv->poll_userspace_id =
 		g_timeout_add_seconds (UP_WAKEUPS_POLL_INTERVAL_USERSPACE,
 				       (GSourceFunc) up_wakeups_poll_userspace_cb, wakeups);
-#if GLIB_CHECK_VERSION(2,25,8)
-	g_source_set_name_by_id (wakeups->priv->poll_userspace_id, "[UpWakeups] userspace");
-#endif
+	g_source_set_name_by_id (wakeups->priv->poll_userspace_id, "[upower] up_wakeups_poll_userspace_cb");
 
 	file = fopen (UP_WAKEUPS_SOURCE_USERSPACE, "w");
 	if (file == NULL)
@@ -668,28 +647,6 @@ up_wakeups_timerstats_enable (UpWakeups *wakeups)
 }
 
 /**
- * up_wakeups_get_property:
- **/
-static void
-up_wakeups_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
-{
-	UpWakeups *wakeups;
-
-	wakeups = UP_WAKEUPS (object);
-
-	switch (prop_id) {
-
-	case PROP_HAS_CAPABILITY:
-		g_value_set_boolean (value, wakeups->priv->has_capability);
-		break;
-
-	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-		break;
-	}
-}
-
-/**
  * up_wakeups_class_init:
  **/
 static void
@@ -697,31 +654,6 @@ up_wakeups_class_init (UpWakeupsClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	object_class->finalize = up_wakeups_finalize;
-	object_class->get_property = up_wakeups_get_property;
-
-	signals [TOTAL_CHANGED] =
-		g_signal_new ("total-changed",
-			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (UpWakeupsClass, total_changed),
-			      NULL, NULL, g_cclosure_marshal_VOID__UINT,
-			      G_TYPE_NONE, 1, G_TYPE_UINT);
-	signals [DATA_CHANGED] =
-		g_signal_new ("data-changed",
-			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (UpWakeupsClass, data_changed),
-			      NULL, NULL, g_cclosure_marshal_VOID__VOID,
-			      G_TYPE_NONE, 0);
-
-	g_object_class_install_property (object_class,
-					 PROP_HAS_CAPABILITY,
-					 g_param_spec_boolean ("has-capability",
-							       "Has capability",
-							       "If wakeups functionality is available",
-							       FALSE,
-							       G_PARAM_READABLE));
-
-	/* introspection */
-	dbus_g_object_type_install_info (UP_TYPE_WAKEUPS, &dbus_glib_up_wakeups_object_info);
 
 	g_type_class_add_private (klass, sizeof (UpWakeupsPrivate));
 }
@@ -732,32 +664,19 @@ up_wakeups_class_init (UpWakeupsClass *klass)
 static void
 up_wakeups_init (UpWakeups *wakeups)
 {
-	GError *error = NULL;
-
 	wakeups->priv = UP_WAKEUPS_GET_PRIVATE (wakeups);
 	wakeups->priv->data = g_ptr_array_new_with_free_func ((GDestroyNotify) g_object_unref);
-	wakeups->priv->total_old = 0;
-	wakeups->priv->total_ave = 0;
-	wakeups->priv->poll_userspace_id = 0;
-	wakeups->priv->poll_kernel_id = 0;
-	wakeups->priv->has_capability = FALSE;
-	wakeups->priv->polling_enabled = FALSE;
-
-	wakeups->priv->connection = dbus_g_bus_get (DBUS_BUS_SYSTEM, &error);
-	if (error != NULL) {
-		g_warning ("Cannot connect to bus: %s", error->message);
-		g_error_free (error);
-		return;
-	}
 
 	/* test if we have an interface */
 	if (g_file_test (UP_WAKEUPS_SOURCE_KERNEL, G_FILE_TEST_EXISTS) ||
 	    g_file_test (UP_WAKEUPS_SOURCE_KERNEL, G_FILE_TEST_EXISTS)) {
-		wakeups->priv->has_capability = TRUE;
+		up_exported_wakeups_set_has_capability (UP_EXPORTED_WAKEUPS (wakeups), TRUE);
 	}
 
-	/* register on the bus */
-	dbus_g_connection_register_g_object (wakeups->priv->connection, "/org/freedesktop/UPower/Wakeups", G_OBJECT (wakeups));
+	g_signal_connect (wakeups, "handle-get-data",
+			  G_CALLBACK (up_wakeups_get_data), wakeups);
+	g_signal_connect (wakeups, "handle-get-total",
+			  G_CALLBACK (up_wakeups_get_total), wakeups);
 }
 
 /**
@@ -788,8 +707,22 @@ up_wakeups_finalize (GObject *object)
 UpWakeups *
 up_wakeups_new (void)
 {
-	UpWakeups *wakeups;
-	wakeups = g_object_new (UP_TYPE_WAKEUPS, NULL);
-	return UP_WAKEUPS (wakeups);
+	return g_object_new (UP_TYPE_WAKEUPS, NULL);
 }
 
+void
+up_wakeups_register (UpWakeups *wakeups,
+		     GDBusConnection *connection)
+{
+	GError *error = NULL;
+
+	g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (wakeups),
+					  connection,
+					  "/org/freedesktop/UPower/Wakeups",
+					  &error);
+
+	if (error != NULL) {
+		g_critical ("Cannot register wakeups on system bus: %s", error->message);
+		g_error_free (error);
+	}
+}

@@ -55,17 +55,8 @@ typedef struct
 	GObjectClass		 parent_class;
 	void			(*device_added)		(UpClient		*client,
 							 UpDevice		*device);
-	void			(*device_changed)	(UpClient		*client,
-							 UpDevice		*device);
 	void			(*device_removed)	(UpClient		*client,
-							 UpDevice		*device);
-	void			(*changed)		(UpClient		*client);
-	/* FIXME: remove when we next break API */
-	void			(*notify_sleep)		(UpClient		*client,
-							 UpSleepKind		 sleep_kind);
-	/* FIXME: remove when we next break API */
-	void			(*notify_resume)	(UpClient		*client,
-							 UpSleepKind		 sleep_kind);
+							 const gchar		*object_path);
 	/*< private >*/
 	/* Padding for future expansion */
 	void (*_up_client_reserved1) (void);
@@ -83,40 +74,15 @@ GType		 up_client_get_type			(void);
 UpClient	*up_client_new				(void);
 
 /* sync versions */
-gboolean	 up_client_get_properties_sync		(UpClient		*client,
-							 GCancellable		*cancellable,
-							 GError			**error);
-gboolean	 up_client_enumerate_devices_sync	(UpClient		*client,
-							 GCancellable		*cancellable,
-							 GError			**error);
-#ifdef UPOWER_ENABLE_DEPRECATED
-gboolean	 up_client_suspend_sync			(UpClient		*client,
-							 GCancellable		*cancellable,
-							 GError			**error);
-gboolean	 up_client_about_to_sleep_sync		(UpClient		*client,
-							 UpSleepKind		 sleep_kind,
-							 GCancellable		*cancellable,
-							 GError			**error);
-gboolean	 up_client_hibernate_sync		(UpClient		*client,
-							 GCancellable		*cancellable,
-							 GError			**error);
-#endif
+UpDevice *	 up_client_get_display_device		(UpClient *client);
+char *		 up_client_get_critical_action		(UpClient *client);
 
 /* accessors */
 GPtrArray	*up_client_get_devices			(UpClient		*client);
 const gchar	*up_client_get_daemon_version		(UpClient		*client);
-#ifdef UPOWER_ENABLE_DEPRECATED
-gboolean	 up_client_get_can_hibernate		(UpClient		*client);
-#endif
 gboolean	 up_client_get_lid_is_closed		(UpClient		*client);
 gboolean	 up_client_get_lid_is_present		(UpClient		*client);
-gboolean	 up_client_get_lid_force_sleep		(UpClient		*client);
-gboolean	 up_client_get_is_docked		(UpClient		*client);
-#ifdef UPOWER_ENABLE_DEPRECATED
-gboolean	 up_client_get_can_suspend		(UpClient		*client);
-#endif
 gboolean	 up_client_get_on_battery		(UpClient		*client);
-gboolean	 up_client_get_on_low_battery		(UpClient		*client);
 
 G_END_DECLS
 

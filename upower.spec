@@ -2,34 +2,34 @@
 
 Summary:        Power Management Service
 Name:           upower
-Version:        0.9.20
-Release:        7%{?dist}
+Version:        0.99.4
+Release:        2%{?dist}
 License:        GPLv2+
 Group:          System Environment/Libraries
 URL:            http://upower.freedesktop.org/
 Source0:        http://upower.freedesktop.org/releases/upower-%{version}.tar.xz
+
 BuildRequires:  sqlite-devel
 BuildRequires:  libtool
 BuildRequires:  intltool
 BuildRequires:  gettext
 BuildRequires:  libgudev1-devel
 %ifnarch s390 s390x
-BuildRequires:  libusb1-devel
+BuildRequires:  libusbx-devel
 BuildRequires:  libimobiledevice-devel
 %endif
 BuildRequires:  glib2-devel >= 2.6.0
-BuildRequires:  dbus-devel  >= 1.2
-BuildRequires:  dbus-glib-devel >= 0.82
-BuildRequires:  polkit-devel >= 0.92
 BuildRequires:  gobject-introspection-devel
 BuildRequires:  gtk-doc
-Requires:       polkit >= 0.92
 Requires:       udev
-Requires:       pm-utils >= 1.2.2.1
 Requires:       gobject-introspection
 
-# install udev rules in /usr/lib/udev
-Patch0: upower-udev.patch
+Patch0:         0001-daemon-fix-get_critical_action.patch
+
+%if 0%{?fedora}
+# From rhughes-f20-gnome-3-12 copr
+Obsoletes:      compat-upower09 < 0.99
+%endif
 
 %description
 UPower (formerly DeviceKit-power) provides a daemon, API and command
@@ -38,14 +38,13 @@ line tools for managing power devices attached to the system.
 %package devel
 Summary: Headers and libraries for UPower
 Group: Development/Libraries
-Requires: %{name} = %{version}-%{release}
-Obsoletes: DeviceKit-power-devel < 1:0.9.0-2
+Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description devel
 Headers and libraries for UPower.
 
 %package devel-docs
-Summary: Headers and libraries for UPower
+Summary: Developer documentation for for libupower-glib
 Requires: %{name} = %{version}-%{release}
 BuildArch: noarch
 
@@ -53,20 +52,19 @@ BuildArch: noarch
 Developer documentation for for libupower-glib.
 
 %prep
-%setup -q
-%patch0 -p1
+%autosetup -p1
 
 %build
 %configure \
         --enable-gtk-doc \
         --disable-static \
-        --enable-deprecated \
         --enable-introspection \
 %ifarch s390 s390x
 	--with-backend=dummy
 %endif
 
-make %{?_smp_mflags}
+# Disable SMP build, fails to build docs
+make
 
 %install
 make install DESTDIR=$RPM_BUILD_ROOT
@@ -79,8 +77,9 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %postun -p /sbin/ldconfig
 
 %files -f upower.lang
-%defattr(-,root,root,-)
-%doc NEWS COPYING AUTHORS HACKING README
+%{!?_licensedir:%global license %%doc}
+%license COPYING
+%doc NEWS AUTHORS HACKING README
 %{_libdir}/libupower-glib.so.*
 %{_sysconfdir}/dbus-1/system.d/*.conf
 %ifnarch s390 s390x
@@ -95,15 +94,10 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %{_mandir}/man1/*
 %{_mandir}/man7/*
 %{_mandir}/man8/*
-%{_datadir}/polkit-1/actions/*.policy
 %{_datadir}/dbus-1/system-services/*.service
 /usr/lib/systemd/system/*.service
-%ifnarch s390 s390x
-/usr/lib/systemd/system-sleep/notify-upower.sh
-%endif
 
 %files devel
-%defattr(-,root,root,-)
 %{_datadir}/dbus-1/interfaces/*.xml
 %{_libdir}/libupower-glib.so
 %{_libdir}/pkgconfig/*.pc
@@ -113,12 +107,23 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %{_includedir}/libupower-glib/upower.h
 
 %files devel-docs
-%defattr(-,root,root,-)
 %{_datadir}/gtk-doc
 %dir %{_datadir}/gtk-doc/html/UPower
 %{_datadir}/gtk-doc/html/UPower/*
 
 %changelog
+* Fri Mar 10 2017 Kalev Lember <klember@redhat.com> - 0.99.4-2
+- Rebuilt for libplist 1.2
+- Resolves: #1387051
+
+* Wed Oct 19 2016 Kalev Lember <klember@redhat.com> - 0.99.4-1
+- New upstream release
+- Resolves: #1387051
+
+* Thu Dec 18 2014 Richard Hughes <rhughes@redhat.com> - 0.99.2-1
+- New upstream release
+- Resolves: #1174421
+
 * Mon Mar 17 2014 Richard Hughes <rhughes@redhat.com> - 0.9.20-7
 - Mark the devel-docs subpackage as noarch to silence a rpmdiff false positive.
 - Resolves: #1070661

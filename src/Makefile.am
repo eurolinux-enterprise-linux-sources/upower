@@ -2,7 +2,7 @@
 
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
-SUBDIRS = etc libupower-glib src doc tools policy po
+SUBDIRS = etc dbus libupower-glib src doc tools po
 
 if BACKEND_TYPE_LINUX
 SUBDIRS += rules
@@ -30,20 +30,20 @@ EXTRA_DIST = 				\
 	ChangeLog
 
 MAINTAINERCLEANFILES =			\
-	$(srcdir)ABOUT-NLS		\
-	$(srcdir)aclocal.m4		\
-	$(srcdir)build-aux		\
-	$(srcdir)ChangeLog		\
-	$(srcdir)config.h.in		\
-	$(srcdir)gtk-doc.make		\
-	$(srcdir)po/Makefile.in.in~	\
-	$(srcdir)po/Makevars.template	\
-	$(srcdir)po/Rules-quot		\
-	$(srcdir)po/e*.header		\
-	$(srcdir)po/*.sin		\
-	$(srcdir)po/*.sed		\
-	$(srcdir)*.tar.xz		\
-	$(srcdir)INSTALL
+	ABOUT-NLS		\
+	aclocal.m4		\
+	build-aux		\
+	ChangeLog		\
+	config.h.in		\
+	gtk-doc.make		\
+	po/Makefile.in.in~	\
+	po/Makevars.template	\
+	po/Rules-quot		\
+	po/e*.header		\
+	po/*.sin		\
+	po/*.sed		\
+	*.tar.xz		\
+	INSTALL
 
 snapshot:
 	$(MAKE) dist distdir=$(PACKAGE)-$(VERSION)-`date +"%Y%m%d"`
@@ -52,8 +52,9 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = upower-glib.pc
 
 # xsltproc barfs on 'make distcheck'; disable for now
-DISTCHECK_CONFIGURE_FLAGS=--disable-man-pages --enable-gtk-doc \
-	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
+DISTCHECK_CONFIGURE_FLAGS=--disable-man-pages --enable-gtk-doc			\
+	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)	\
+	--with-udevrulesdir='$${libdir}/udev/rules.d-distcheck'
 
 clean-local :
 	rm -f *~

@@ -84,41 +84,28 @@ typedef enum {
 } UpDeviceTechnology;
 
 /**
- * UpQosKind:
+ * UpDeviceLevel:
  *
- * The type of QOS request.
+ * The warning level of a battery.
  **/
 typedef enum {
-	UP_QOS_KIND_UNKNOWN,
-	UP_QOS_KIND_NETWORK,
-	UP_QOS_KIND_CPU_DMA,
-	UP_QOS_KIND_LAST
-} UpQosKind;
-
-/**
- * UpSleepKind:
- *
- * The type of QOS request.
- **/
-typedef enum {
-	UP_SLEEP_KIND_UNKNOWN,
-	UP_SLEEP_KIND_SUSPEND,
-	UP_SLEEP_KIND_HIBERNATE,
-	UP_SLEEP_KIND_HYBRID,
-	UP_SLEEP_KIND_LAST
-} UpSleepKind;
+	UP_DEVICE_LEVEL_UNKNOWN,
+	UP_DEVICE_LEVEL_NONE,
+	UP_DEVICE_LEVEL_DISCHARGING,
+	UP_DEVICE_LEVEL_LOW,
+	UP_DEVICE_LEVEL_CRITICAL,
+	UP_DEVICE_LEVEL_ACTION,
+	UP_DEVICE_LEVEL_LAST
+} UpDeviceLevel;
 
 const gchar	*up_device_kind_to_string		(UpDeviceKind		 type_enum);
 const gchar	*up_device_state_to_string		(UpDeviceState		 state_enum);
 const gchar	*up_device_technology_to_string		(UpDeviceTechnology	 technology_enum);
+const gchar	*up_device_level_to_string		(UpDeviceLevel		 level_enum);
 UpDeviceKind	 up_device_kind_from_string		(const gchar		*type);
 UpDeviceState	 up_device_state_from_string		(const gchar		*state);
 UpDeviceTechnology up_device_technology_from_string	(const gchar		*technology);
-const gchar	*up_qos_kind_to_string			(UpQosKind		 type);
-UpQosKind	 up_qos_kind_from_string		(const gchar		*type);
-const gchar	*up_sleep_kind_to_string		(UpSleepKind		 sleep_kind_enum);
-UpSleepKind	 up_sleep_kind_from_string		(const gchar		*sleep_kind);
-
+UpDeviceLevel	 up_device_level_from_string		(const gchar		*level);
 
 G_END_DECLS
 

@@ -2,18 +2,18 @@
 
 AM_CPPFLAGS = \
 	-I$(top_builddir)/src -I$(top_srcdir)/src		\
+	-I$(top_builddir)/ -I$(top_srcdir)			\
 	-DUP_COMPILATION					\
 	-DG_LOG_DOMAIN=\"UPower-Linux\"				\
 	-DPACKAGE_SYSCONF_DIR=\""$(sysconfdir)"\"		\
 	-I$(top_srcdir)/libupower-glib				\
 	$(USB_CFLAGS)						\
 	$(GIO_CFLAGS)						\
-	$(DBUS_GLIB_CFLAGS)					\
 	$(GUDEV_CFLAGS)						\
 	$(POLKIT_CFLAGS)					\
 	$(GLIB_CFLAGS)						\
 	$(IDEVICE_CFLAGS)					\
-	$(SYSTEMD_CFLAGS)
+	$(NULL)
 
 if BACKEND_TYPE_LINUX
 noinst_LTLIBRARIES = libupshared.la
@@ -38,8 +38,6 @@ libupshared_la_SOURCES =					\
 	up-device-wup.h						\
 	up-input.c						\
 	up-input.h						\
-	up-dock.c						\
-	up-dock.h						\
 	up-backend.c						\
 	up-native.c						\
 	hidpp-device.c						\
@@ -66,6 +64,8 @@ EXTRA_DIST = $(libupshared_la_SOURCES) 			\
 
 libupshared_la_CFLAGS =					\
 	$(WARNINGFLAGS_C)
+
+libupshared_la_LIBADD = $(GIO_LIBS)
 
 clean-local :
 	rm -f *~

@@ -23,8 +23,6 @@
 #include "config.h"
 
 #include <glib.h>
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include <glib/gi18n.h>
 #include <string.h>
 #include <sys/types.h>
@@ -35,9 +33,7 @@
 #include <dirent.h>
 
 #include "up-kbd-backlight.h"
-#include "up-marshal.h"
 #include "up-daemon.h"
-#include "up-kbd-backlight-glue.h"
 #include "up-types.h"
 
 static void     up_kbd_backlight_finalize   (GObject	*object);
@@ -49,17 +45,9 @@ struct UpKbdBacklightPrivate
 	gint			 fd;
 	gint			 brightness;
 	gint			 max_brightness;
-	DBusGConnection		*connection;
 };
 
-enum {
-	BRIGHTNESS_CHANGED,
-	LAST_SIGNAL
-};
-
-static guint signals [LAST_SIGNAL] = { 0 };
-
-G_DEFINE_TYPE (UpKbdBacklight, up_kbd_backlight, G_TYPE_OBJECT)
+G_DEFINE_TYPE (UpKbdBacklight, up_kbd_backlight, UP_TYPE_EXPORTED_KBD_BACKLIGHT_SKELETON)
 
 /**
  * up_kbd_backlight_brightness_write:
@@ -97,8 +85,8 @@ up_kbd_backlight_brightness_write (UpKbdBacklight *kbd_backlight, gint value)
 
 	/* emit signal */
 	kbd_backlight->priv->brightness = value;
-	g_signal_emit (kbd_backlight, signals [BRIGHTNESS_CHANGED], 0,
-		       kbd_backlight->priv->brightness);
+	up_exported_kbd_backlight_emit_brightness_changed (UP_EXPORTED_KBD_BACKLIGHT (kbd_backlight),
+							   kbd_backlight->priv->brightness);
 
 out:
 	g_free (text);
@@ -110,11 +98,13 @@ out:
  *
  * Gets the current brightness
  **/
-gboolean
-up_kbd_backlight_get_brightness (UpKbdBacklight *kbd_backlight, gint *value, GError **error)
+static gboolean
+up_kbd_backlight_get_brightness (UpExportedKbdBacklight *skeleton,
+				 GDBusMethodInvocation *invocation,
+				 UpKbdBacklight *kbd_backlight)
 {
-	g_return_val_if_fail (value != NULL, FALSE);
-	*value = kbd_backlight->priv->brightness;
+	up_exported_kbd_backlight_complete_get_brightness (skeleton, invocation,
+							   kbd_backlight->priv->brightness);
 	return TRUE;
 }
 
@@ -123,29 +113,39 @@ up_kbd_backlight_get_brightness (UpKbdBacklight *kbd_backlight, gint *value, GEr
  *
  * Gets the max brightness
  **/
-gboolean
-up_kbd_backlight_get_max_brightness (UpKbdBacklight *kbd_backlight, gint *value, GError **error)
+static gboolean
+up_kbd_backlight_get_max_brightness (UpExportedKbdBacklight *skeleton,
+				     GDBusMethodInvocation *invocation,
+				     UpKbdBacklight *kbd_backlight)
 {
-	g_return_val_if_fail (value != NULL, FALSE);
-	*value = kbd_backlight->priv->max_brightness;
+	up_exported_kbd_backlight_complete_get_max_brightness (skeleton, invocation,
+							       kbd_backlight->priv->max_brightness);
 	return TRUE;
 }
 
 /**
  * up_kbd_backlight_set_brightness:
  **/
-gboolean
-up_kbd_backlight_set_brightness (UpKbdBacklight *kbd_backlight, gint value, GError **error)
+static gboolean
+up_kbd_backlight_set_brightness (UpExportedKbdBacklight *skeleton,
+				 GDBusMethodInvocation *invocation,
+				 gint value,
+				 UpKbdBacklight *kbd_backlight)
 {
 	gboolean ret = FALSE;
 
 	g_debug ("setting brightness to %i", value);
-	ret = up_kbd_backlight_brightness_write(kbd_backlight, value);
+	ret = up_kbd_backlight_brightness_write (kbd_backlight, value);
 
-	if (!ret) {
-		*error = g_error_new (UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL, "error writing brightness %d", value);
+	if (ret) {
+		up_exported_kbd_backlight_complete_set_brightness (skeleton, invocation);
+	} else {
+		g_dbus_method_invocation_return_error (invocation,
+						       UP_DAEMON_ERROR, UP_DAEMON_ERROR_GENERAL,
+						       "error writing brightness %d", value);
 	}
-	return ret;
+
+	return TRUE;
 }
 
 /**
@@ -156,16 +156,6 @@ up_kbd_backlight_class_init (UpKbdBacklightClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	object_class->finalize = up_kbd_backlight_finalize;
-
-	signals [BRIGHTNESS_CHANGED] =
-		g_signal_new ("brightness-changed",
-			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (UpKbdBacklightClass, brightness_changed),
-			      NULL, NULL, g_cclosure_marshal_VOID__INT,
-			      G_TYPE_NONE, 1, G_TYPE_INT);
-
-	/* introspection */
-	dbus_g_object_type_install_info (UP_TYPE_KBD_BACKLIGHT, &dbus_glib_up_kbd_backlight_object_info);
 
 	g_type_class_add_private (klass, sizeof (UpKbdBacklightPrivate));
 }
@@ -193,7 +183,8 @@ up_kbd_backlight_find (UpKbdBacklight *kbd_backlight)
 	/* open directory */
 	dir = g_dir_open ("/sys/class/leds", 0, &error);
 	if (dir == NULL) {
-		g_warning ("failed to get directory: %s", error->message);
+		if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT))
+			g_warning ("failed to open directory: %s", error->message);
 		g_error_free (error);
 		goto out;
 	}
@@ -263,26 +254,14 @@ out:
 static void
 up_kbd_backlight_init (UpKbdBacklight *kbd_backlight)
 {
-	GError *error = NULL;
-
 	kbd_backlight->priv = UP_KBD_BACKLIGHT_GET_PRIVATE (kbd_backlight);
 
-	/* find a kbd backlight in sysfs */
-	if (!up_kbd_backlight_find (kbd_backlight)) {
-		g_debug ("cannot find a keyboard backlight");
-		return;
-	}
-
-	kbd_backlight->priv->connection = dbus_g_bus_get (DBUS_BUS_SYSTEM, &error);
-	if (error != NULL) {
-		g_warning ("Cannot connect to bus: %s", error->message);
-		g_error_free (error);
-		return;
-	}
-
-	/* register on the bus */
-	dbus_g_connection_register_g_object (kbd_backlight->priv->connection, "/org/freedesktop/UPower/KbdBacklight", G_OBJECT (kbd_backlight));
-
+	g_signal_connect (kbd_backlight, "handle-get-brightness",
+			  G_CALLBACK (up_kbd_backlight_get_brightness), kbd_backlight);
+	g_signal_connect (kbd_backlight, "handle-get-max-brightness",
+			  G_CALLBACK (up_kbd_backlight_get_max_brightness), kbd_backlight);
+	g_signal_connect (kbd_backlight, "handle-set-brightness",
+			  G_CALLBACK (up_kbd_backlight_set_brightness), kbd_backlight);
 }
 
 /**
@@ -300,7 +279,8 @@ up_kbd_backlight_finalize (GObject *object)
 	kbd_backlight->priv = UP_KBD_BACKLIGHT_GET_PRIVATE (kbd_backlight);
 
 	/* close file */
-	close (kbd_backlight->priv->fd);
+	if (kbd_backlight->priv->fd >= 0)
+		close (kbd_backlight->priv->fd);
 
 	G_OBJECT_CLASS (up_kbd_backlight_parent_class)->finalize (object);
 }
@@ -311,8 +291,28 @@ up_kbd_backlight_finalize (GObject *object)
 UpKbdBacklight *
 up_kbd_backlight_new (void)
 {
-	UpKbdBacklight *kbd_backlight;
-	kbd_backlight = g_object_new (UP_TYPE_KBD_BACKLIGHT, NULL);
-	return UP_KBD_BACKLIGHT (kbd_backlight);
+	return g_object_new (UP_TYPE_KBD_BACKLIGHT, NULL);
 }
 
+void
+up_kbd_backlight_register (UpKbdBacklight *kbd_backlight,
+			   GDBusConnection *connection)
+{
+	GError *error = NULL;
+
+	/* find a kbd backlight in sysfs */
+	if (!up_kbd_backlight_find (kbd_backlight)) {
+		g_debug ("cannot find a keyboard backlight");
+		return;
+	}
+
+	g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (kbd_backlight),
+					  connection,
+					  "/org/freedesktop/UPower/KbdBacklight",
+					  &error);
+
+	if (error != NULL) {
+		g_warning ("Cannot export KbdBacklight object to bus: %s", error->message);
+		g_error_free (error);
+	}
+}

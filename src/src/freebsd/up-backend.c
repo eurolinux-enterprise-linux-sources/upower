@@ -40,12 +40,10 @@
 
 #include "up-backend.h"
 #include "up-daemon.h"
-#include "up-marshal.h"
 #include "up-device.h"
+#include "up-backend-bsd-private.h"
 
 #define UP_BACKEND_REFRESH_TIMEOUT	30	/* seconds */
-#define UP_BACKEND_SUSPEND_COMMAND	"/usr/sbin/zzz"
-#define UP_BACKEND_HIBERNATE_COMMAND	"/usr/sbin/acpiconf -s 4"
 
 static void	up_backend_class_init	(UpBackendClass	*klass);
 static void	up_backend_init	(UpBackend		*backend);
@@ -55,7 +53,6 @@ static gboolean	up_backend_refresh_devices (gpointer user_data);
 static gboolean	up_backend_acpi_devd_notify (UpBackend *backend, const gchar *system, const gchar *subsystem, const gchar *type, const gchar *data);
 static gboolean	up_backend_create_new_device (UpBackend *backend, UpAcpiNative *native);
 static void	up_backend_lid_coldplug (UpBackend *backend);
-static gboolean	up_backend_supports_sleep_state (const gchar *state);
 
 #define UP_BACKEND_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), UP_TYPE_BACKEND, UpBackendPrivate))
 
@@ -65,6 +62,8 @@ struct UpBackendPrivate
 	UpDeviceList		*device_list;
 	GHashTable		*handle_map;
 	guint			poll_timer_id;
+	UpConfig		*config;
+	GDBusProxy		*seat_manager_proxy;
 };
 
 enum {
@@ -291,70 +290,61 @@ up_backend_coldplug (UpBackend *backend, UpDaemon *daemon)
 		g_timeout_add_seconds (UP_BACKEND_REFRESH_TIMEOUT,
 			       (GSourceFunc) up_backend_refresh_devices,
 			       backend);
-#if GLIB_CHECK_VERSION(2,25,8)
-	g_source_set_name_by_id (backend->priv->poll_timer_id, "[FreeBSD:UpBackend] poll");
-#endif
+	g_source_set_name_by_id (backend->priv->poll_timer_id, "[upower] up_backend_refresh_devices (freebsd)");
 
 	return TRUE;
 }
 
 /**
- * up_backend_get_powersave_command:
- **/
-const gchar *
-up_backend_get_powersave_command (UpBackend *backend, gboolean powersave)
+ * up_backend_unplug:
+ * @backend: The %UpBackend class instance
+ *
+ * Forget about all learned devices, effectively undoing up_backend_coldplug.
+ * Resources are released without emitting signals.
+ */
+void
+up_backend_unplug (UpBackend *backend)
 {
-	/* XXX: Do we want to use powerd here? */
-	return NULL;
+	if (backend->priv->poll_timer_id > 0) {
+		g_source_remove (backend->priv->poll_timer_id);
+		backend->priv->poll_timer_id = 0;
+	}
+	if (backend->priv->device_list != NULL) {
+		g_object_unref (backend->priv->device_list);
+		backend->priv->device_list = NULL;
+	}
+	if (backend->priv->daemon != NULL) {
+		g_object_unref (backend->priv->daemon);
+		backend->priv->daemon = NULL;
+	}
 }
 
 /**
- * up_backend_get_suspend_command:
- **/
-const gchar *
-up_backend_get_suspend_command (UpBackend *backend)
+ * up_backend_get_seat_manager_proxy:
+ * @backend: The %UpBackend class instance
+ *
+ * Returns the seat manager object or NULL on error. [transfer none]
+ */
+GDBusProxy *
+up_backend_get_seat_manager_proxy (UpBackend  *backend)
 {
-	return UP_BACKEND_SUSPEND_COMMAND;
+	g_return_val_if_fail (UP_IS_BACKEND (backend), NULL);
+
+	return backend->priv->seat_manager_proxy;
 }
 
 /**
- * up_backend_get_hibernate_command:
- **/
-const gchar *
-up_backend_get_hibernate_command (UpBackend *backend)
+ * up_backend_get_config:
+ * @backend: The %UpBackend class instance
+ *
+ * Returns the UpConfig object or NULL on error. [transfer none]
+ */
+UpConfig *
+up_backend_get_config (UpBackend  *backend)
 {
-	return UP_BACKEND_HIBERNATE_COMMAND;
-}
+	g_return_val_if_fail (UP_IS_BACKEND (backend), NULL);
 
-gboolean
-up_backend_emits_resuming (UpBackend *backend)
-{
-	return FALSE;
-}
-
-/**
- * up_backend_kernel_can_suspend:
- **/
-gboolean
-up_backend_kernel_can_suspend (UpBackend *backend)
-{
-	return up_backend_supports_sleep_state ("S3");
-}
-
-/**
- * up_backend_kernel_can_hibernate:
- **/
-gboolean
-up_backend_kernel_can_hibernate (UpBackend *backend)
-{
-	return up_backend_supports_sleep_state ("S4");
-}
-
-gboolean
-up_backend_has_encrypted_swap (UpBackend *backend)
-{
-	/* XXX: Add support for GELI? */
-	return FALSE;
+	return backend->priv->config;
 }
 
 /* Return value: a percentage value */
@@ -393,26 +383,6 @@ out:
 }
 
 /**
- * up_backend_supports_sleep_state:
- **/
-static gboolean
-up_backend_supports_sleep_state (const gchar *state)
-{
-	gchar *sleep_states;
-	gboolean ret = FALSE;
-
-	sleep_states = up_get_string_sysctl (NULL, "hw.acpi.supported_sleep_state");
-	if (sleep_states != NULL) {
-		if (strstr (sleep_states, state) != NULL)
-			ret = TRUE;
-	}
-
-	g_free (sleep_states);
-
-	return ret;
-}
-
-/**
  * up_backend_class_init:
  * @klass: The UpBackendClass
  **/
@@ -426,13 +396,13 @@ up_backend_class_init (UpBackendClass *klass)
 		g_signal_new ("device-added",
 			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (UpBackendClass, device_added),
-			      NULL, NULL, up_marshal_VOID__POINTER_POINTER,
+			      NULL, NULL, NULL,
 			      G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_POINTER);
 	signals [SIGNAL_DEVICE_REMOVED] =
 		g_signal_new ("device-removed",
 			      G_TYPE_FROM_CLASS (object_class), G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (UpBackendClass, device_removed),
-			      NULL, NULL, up_marshal_VOID__POINTER_POINTER,
+			      NULL, NULL, NULL,
 			      G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_POINTER);
 
 	g_type_class_add_private (klass, sizeof (UpBackendPrivate));
@@ -445,10 +415,16 @@ static void
 up_backend_init (UpBackend *backend)
 {
 	backend->priv = UP_BACKEND_GET_PRIVATE (backend);
-	backend->priv->daemon = NULL;
-	backend->priv->device_list = NULL;
 	backend->priv->handle_map = g_hash_table_new_full (g_str_hash, g_str_equal, (GDestroyNotify) g_free, (GDestroyNotify) g_object_unref);
-	backend->priv->poll_timer_id = 0;
+	backend->priv->config = up_config_new ();
+	backend->priv->seat_manager_proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
+									   0,
+									   NULL,
+									   CONSOLEKIT2_DBUS_NAME,
+									   CONSOLEKIT2_DBUS_PATH,
+									   CONSOLEKIT2_DBUS_INTERFACE,
+									   NULL,
+									   NULL);
 }
 
 /**
@@ -463,6 +439,7 @@ up_backend_finalize (GObject *object)
 
 	backend = UP_BACKEND (object);
 
+	g_object_unref (backend->priv->config);
 	if (backend->priv->daemon != NULL)
 		g_object_unref (backend->priv->daemon);
 	if (backend->priv->device_list != NULL)
@@ -471,6 +448,7 @@ up_backend_finalize (GObject *object)
 		g_hash_table_unref (backend->priv->handle_map);
 	if (backend->priv->poll_timer_id > 0)
 		g_source_remove (backend->priv->poll_timer_id);
+	g_clear_object (&backend->priv->seat_manager_proxy);
 
 	G_OBJECT_CLASS (up_backend_parent_class)->finalize (object);
 }
@@ -483,8 +461,6 @@ up_backend_finalize (GObject *object)
 UpBackend *
 up_backend_new (void)
 {
-	UpBackend *backend;
-	backend = g_object_new (UP_TYPE_BACKEND, NULL);
-	return UP_BACKEND (backend);
+	return g_object_new (UP_TYPE_BACKEND, NULL);
 }
 
