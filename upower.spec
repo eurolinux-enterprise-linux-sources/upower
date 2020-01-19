@@ -3,7 +3,7 @@
 Summary:        Power Management Service
 Name:           upower
 Version:        0.9.20
-Release:        3%{?dist}
+Release:        7%{?dist}
 License:        GPLv2+
 Group:          System Environment/Libraries
 URL:            http://upower.freedesktop.org/
@@ -43,6 +43,14 @@ Obsoletes: DeviceKit-power-devel < 1:0.9.0-2
 
 %description devel
 Headers and libraries for UPower.
+
+%package devel-docs
+Summary: Headers and libraries for UPower
+Requires: %{name} = %{version}-%{release}
+BuildArch: noarch
+
+%description devel-docs
+Developer documentation for for libupower-glib.
 
 %prep
 %setup -q
@@ -97,9 +105,6 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %files devel
 %defattr(-,root,root,-)
 %{_datadir}/dbus-1/interfaces/*.xml
-%{_datadir}/gtk-doc
-%dir %{_datadir}/gtk-doc/html/UPower
-%{_datadir}/gtk-doc/html/UPower/*
 %{_libdir}/libupower-glib.so
 %{_libdir}/pkgconfig/*.pc
 %{_datadir}/gir-1.0/*.gir
@@ -107,7 +112,27 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 %{_includedir}/libupower-glib/up-*.h
 %{_includedir}/libupower-glib/upower.h
 
+%files devel-docs
+%defattr(-,root,root,-)
+%{_datadir}/gtk-doc
+%dir %{_datadir}/gtk-doc/html/UPower
+%{_datadir}/gtk-doc/html/UPower/*
+
 %changelog
+* Mon Mar 17 2014 Richard Hughes <rhughes@redhat.com> - 0.9.20-7
+- Mark the devel-docs subpackage as noarch to silence a rpmdiff false positive.
+- Resolves: #1070661
+
+* Mon Mar 17 2014 Richard Hughes <rhughes@redhat.com> - 0.9.20-6
+- Split out a new devel-docs subpackage to fix multilib_policy=all installs.
+- Resolves: #1070661
+
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 0.9.20-5
+- Mass rebuild 2014-01-24
+
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 0.9.20-4
+- Mass rebuild 2013-12-27
+
 * Wed Oct  9 2013 Matthias Clasen <mclasen@redhat.com> - 0.9.20-3
 - Install udev rules in /usr/lib/udev (#884202)
 
